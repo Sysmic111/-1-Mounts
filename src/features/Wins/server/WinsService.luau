@@ -4,7 +4,8 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
-local WinsConfig = require(script.Parent.WinsConfig)
+local WinsConfig    = require(script.Parent.WinsConfig)
+local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
 
 type DataServiceServer = {
 	hasProfile: (self: DataServiceServer, player: Player) -> boolean,
@@ -91,6 +92,12 @@ function WinsService:_setupWinZone(winZone: Instance): ()
 		return
 	end
 
+	local surfaceGui = touchPart:FindFirstChild("SurfaceGui")
+	local label = surfaceGui and surfaceGui:FindFirstChild("TextLabel") :: TextLabel?
+	if label then
+		label.Text = "+ " .. tostring(winsQuantity)
+	end
+
 	local state: WinZoneState = {
 		connections = {},
 		debounceByPlayer = {},
@@ -138,11 +145,15 @@ function WinsService:_giveWins(player: Player, winZone: Instance): ()
 		return
 	end
 
+	local rebirthCount = (dataService:get(player, { "Rebirth" }) or 0) :: number
+	local multiplier   = RebirthConfig.getWinsMultiplier(rebirthCount)
+	local earned       = math.round(winsQuantity * multiplier)
+
 	local currentWins = dataService:get(player, { "WinCurrency" }) or 0
-	local newWins = currentWins + winsQuantity
+	local newWins = currentWins + earned
 	dataService:set(player, { "WinCurrency" }, newWins)
 
-	debugPrint(`Wins entregados: {player.Name}, +{winsQuantity}, total={newWins}`)
+	debugPrint(`Wins entregados: {player.Name}, +{earned} (x{multiplier}), total={newWins}`)
 end
 
 function WinsService:_teleportToSpawn(player: Player): ()

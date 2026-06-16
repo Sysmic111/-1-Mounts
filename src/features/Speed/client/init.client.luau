@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 
 local Packets = require(ReplicatedStorage.Shared.Packets)
 local FormatNumber = require(ReplicatedStorage.Packages.FormatNumber)
@@ -12,9 +13,6 @@ local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local temporal = playerGui:WaitForChild("Temporal")
-local generalTemplates = playerGui:WaitForChild("GeneralTemplates")
-local speedTemplate = generalTemplates:WaitForChild("SpeedTemplate")
 
 local uiSounds = SoundService:WaitForChild("SFX"):WaitForChild("UI")
 local popupSounds = {
@@ -28,11 +26,21 @@ local sfx = SoundService:WaitForChild("SFX")
 local levelUpSoundPower = sfx:WaitForChild("sci-fi_power_up_05")
 local levelUpSoundSparkle = sfx:WaitForChild("collect_item_sparkle_pop_09")
 
-local ORIGINAL_SIZE = speedTemplate.Size
+local function getUI()
+	local generalTemplates = playerGui:FindFirstChild("GeneralTemplates")
+	local temporal = playerGui:FindFirstChild("Temporal")
+	local speedTemplate = generalTemplates and generalTemplates:FindFirstChild("SpeedTemplate")
+	return speedTemplate, temporal
+end
 
 local function showSpeedGain(amount: number)
+	local speedTemplate, temporal = getUI()
+	if not speedTemplate or not temporal then return end
+
 	local clone = speedTemplate:Clone()
-	local speedLabel = clone:FindFirstChild("Speed") :: TextLabel
+	local speedLabel = clone:FindFirstChild("Speed") :: TextLabel?
+	if not speedLabel then clone:Destroy() return end
+
 	local uiStroke = speedLabel:FindFirstChildOfClass("UIStroke") :: UIStroke
 	local imageLabel = clone:FindFirstChild("ImageLabel") :: ImageLabel
 
@@ -50,42 +58,54 @@ local function showSpeedGain(amount: number)
 	TweenService:Create(
 		clone,
 		TweenInfo.new(0.4, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out),
-		{ Size = ORIGINAL_SIZE }
+		{ Size = speedTemplate.Size }
 	):Play()
 
 	task.delay(2, function()
-		if not clone or not clone.Parent then
-			return
-		end
+		if not clone or not clone.Parent then return end
 		local fadeInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		TweenService:Create(speedLabel, fadeInfo, { TextTransparency = 1 }):Play()
 		TweenService:Create(uiStroke, fadeInfo, { Transparency = 1 }):Play()
 		TweenService:Create(imageLabel, fadeInfo, { ImageTransparency = 1 }):Play()
 		task.delay(1, function()
-			if clone and clone.Parent then
-				clone:Destroy()
-			end
+			if clone and clone.Parent then clone:Destroy() end
 		end)
 	end)
+end
+
+local function isAboveTreadmill(hrp: BasePart): boolean
+	for _, model in CollectionService:GetTagged("Treadmill") do
+		local pp = (model :: Model).PrimaryPart
+		if not pp then continue end
+		local localPos = pp.CFrame:PointToObjectSpace(hrp.Position)
+		local half = pp.Size / 2
+		if math.abs(localPos.X) <= half.X
+			and math.abs(localPos.Z) <= half.Z
+			and localPos.Y >= -1
+			and localPos.Y <= half.Y + 8 then
+			return true
+		end
+	end
+	return false
 end
 
 -- Movement tracking
 local lastPosition: Vector3? = nil
 local distanceRemainder = 0
+local treadmillDistanceRemainder = 0
 local lastPacketTime = 0
 
 local function resetTracking()
 	lastPosition = nil
 	distanceRemainder = 0
+	treadmillDistanceRemainder = 0
 end
 
 player.CharacterAdded:Connect(resetTracking)
 
-RunService.Heartbeat:Connect(function()
+RunService.Heartbeat:Connect(function(dt: number)
 	local character = player.Character
-	if not character then
-		return
-	end
+	if not character then return end
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid?
@@ -93,6 +113,28 @@ RunService.Heartbeat:Connect(function()
 		lastPosition = nil
 		return
 	end
+
+	local now = os.clock()
+
+	local onTreadmill = isAboveTreadmill(rootPart)
+	local wasOnTreadmill = character:GetAttribute("OnTreadmill") == true
+	if onTreadmill ~= wasOnTreadmill then
+		character:SetAttribute("OnTreadmill", onTreadmill)
+	end
+
+	if onTreadmill then
+		treadmillDistanceRemainder += humanoid.WalkSpeed * dt
+		if treadmillDistanceRemainder >= SpeedConfig.StudsPerSpeed and (now - lastPacketTime) >= SpeedConfig.MovementCheckInterval then
+			treadmillDistanceRemainder -= SpeedConfig.StudsPerSpeed
+			lastPacketTime = now
+			Packets.RequestSpeedGain:Fire()
+			showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number))
+		end
+		lastPosition = rootPart.Position
+		return
+	end
+
+	treadmillDistanceRemainder = 0
 
 	local currentPosition = rootPart.Position
 	if not lastPosition then
@@ -103,18 +145,15 @@ RunService.Heartbeat:Connect(function()
 	local moved = (currentPosition - lastPosition).Magnitude
 	lastPosition = currentPosition
 
-	if moved == 0 then
-		return
-	end
+	if moved == 0 then return end
 
 	distanceRemainder += moved
 
-	local now = os.clock()
 	if distanceRemainder >= SpeedConfig.StudsPerSpeed and (now - lastPacketTime) >= SpeedConfig.MovementCheckInterval then
 		distanceRemainder -= SpeedConfig.StudsPerSpeed
 		lastPacketTime = now
 		Packets.RequestSpeedGain:Fire()
-		showSpeedGain(1)
+		showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number))
 	end
 end)
 
@@ -188,16 +227,39 @@ local function emitLevelUpParticles()
 end
 
 -- Progress bar
-local bot = playerGui:WaitForChild("Bot")
-local progress = bot:WaitForChild("Content"):WaitForChild("Progress")
-local levelLabel = progress:WaitForChild("Level") :: TextLabel
-local speedLabel = progress:WaitForChild("Content"):WaitForChild("Speed") :: TextLabel
-local fill = progress:WaitForChild("Fill") :: Frame
-
 local fillTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local progressOriginalSize = progress.Size
+
+local function getProgressUI()
+	local bot = playerGui:FindFirstChild("Bot")
+	if not bot then return nil, nil, nil, nil end
+	local content = bot:FindFirstChild("Content")
+	local progress = content and content:FindFirstChild("Progress")
+	if not progress then return nil, nil, nil, nil end
+	local levelLabel = progress:FindFirstChild("Level") :: TextLabel?
+	local innerContent = progress:FindFirstChild("Content")
+	local speedLabel = innerContent and innerContent:FindFirstChild("Speed") :: TextLabel?
+	local fill = progress:FindFirstChild("Fill") :: Frame?
+	return progress, levelLabel, speedLabel, fill
+end
+
+local totalMultiplierLabel = playerGui:WaitForChild("Bot")
+	:WaitForChild("Content"):WaitForChild("Total Multiplier") :: TextLabel
+
+local function updateTotalMultiplierLabel()
+	local val = (player:GetAttribute("TotalMultiplier") or 1) :: number
+	totalMultiplierLabel.Text = "Total Multiplier: x" .. tostring(math.floor(val * 100 + 0.5) / 100)
+end
+
+updateTotalMultiplierLabel()
+player:GetAttributeChangedSignal("TotalMultiplier"):Connect(updateTotalMultiplierLabel)
+
+local progressOriginalSize = playerGui:WaitForChild("Bot")
+	:WaitForChild("Content"):WaitForChild("Progress").Size
 
 local function animateLevelUp()
+	local progress = getProgressUI()
+	if not progress then return end
+
 	local punchSize = UDim2.new(
 		progressOriginalSize.X.Scale,
 		progressOriginalSize.X.Offset,
@@ -222,6 +284,9 @@ local function animateLevelUp()
 end
 
 local function updateProgress(animateFill: boolean)
+	local progress, levelLabel, speedLabel, fill = getProgressUI()
+	if not progress or not levelLabel or not speedLabel or not fill then return end
+
 	local level = DataService:get({ "Level" }) or 1
 	local speedCurrency = DataService:get({ "SpeedCurrency" }) or 0
 	local required = SpeedConfig.getRequiredSpeedForLevel(level)

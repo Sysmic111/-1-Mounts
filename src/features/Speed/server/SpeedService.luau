@@ -2,8 +2,9 @@
 
 local Players = game:GetService("Players")
 
-local SpeedConfig = require(game.ReplicatedStorage.Shared.SpeedConfig)
-local Packets = require(game.ReplicatedStorage.Shared.Packets)
+local SpeedConfig    = require(game.ReplicatedStorage.Shared.SpeedConfig)
+local RebirthConfig  = require(game.ReplicatedStorage.Shared.RebirthConfig)
+local Packets        = require(game.ReplicatedStorage.Shared.Packets)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -14,6 +15,7 @@ type DataServiceServer = {
 
 local SpeedService = {
 	_dataService = nil :: DataServiceServer?,
+	_mountsService = nil :: any,
 	_connections = {} :: { [Player]: { RBXScriptConnection } },
 	_lastRequestTimes = {} :: { [Player]: number },
 }
@@ -26,6 +28,10 @@ end
 
 local function getHumanoid(character: Model): Humanoid?
 	return character:FindFirstChildOfClass("Humanoid")
+end
+
+function SpeedService:setMountsService(mountsService: any): ()
+	self._mountsService = mountsService
 end
 
 function SpeedService:init(dataService: DataServiceServer): ()
@@ -55,7 +61,9 @@ function SpeedService:init(dataService: DataServiceServer): ()
 			return
 		end
 		self._lastRequestTimes[player] = now
-		self:_addSpeed(player, 1)
+
+		local totalMultiplier = (player:GetAttribute("TotalMultiplier") or 1) :: number
+		self:_addSpeed(player, math.ceil(totalMultiplier))
 	end)
 end
 
@@ -91,12 +99,35 @@ function SpeedService:_setupPlayer(player: Player): ()
 	end
 end
 
+function SpeedService:_updateTotalMultiplier(player: Player): ()
+	local dataService = self._dataService
+	if not dataService or not dataService:hasProfile(player) then return end
+
+	local mountMultiplier = 1
+	if self._mountsService then
+		mountMultiplier = self._mountsService:GetMultiplier(player)
+	end
+
+	local rebirthCount      = (dataService:get(player, { "Rebirth" }) or 0) :: number
+	local rebirthMultiplier = RebirthConfig.getWinsMultiplier(rebirthCount)
+	local total             = mountMultiplier * rebirthMultiplier
+
+	player:SetAttribute("TotalMultiplier", total)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (mount x{mountMultiplier} * rebirth x{rebirthMultiplier})`)
+end
+
+function SpeedService:updateTotalMultiplier(player: Player): ()
+	self:_updateTotalMultiplier(player)
+end
+
 function SpeedService:_setupCharacter(player: Player, character: Model): ()
 	local dataService = self._dataService
 	if not dataService or not dataService:hasProfile(player) then
 		debugPrint(`No se pudo configurar character de {player.Name}: data/profile no disponible`)
 		return
 	end
+
+	self:_updateTotalMultiplier(player)
 
 	local humanoid = getHumanoid(character)
 	if humanoid then

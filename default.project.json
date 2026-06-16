@@ -20,11 +20,17 @@
       "Environment": {
         "$path": "src/features/Environment/server"
       },
+      "Mounts": {
+        "$path": "src/features/Mounts/server"
+      },
       "Speed": {
         "$path": "src/features/Speed/server"
       },
       "Wins": {
         "$path": "src/features/Wins/server"
+      },
+      "Rebirth": {
+        "$path": "src/features/Rebirth/server"
       }
     },
     "StarterPlayer": {
@@ -35,11 +41,17 @@
         "Environment": {
           "$path": "src/features/Environment/client"
         },
+        "Mounts": {
+          "$path": "src/features/Mounts/client"
+        },
         "Speed": {
           "$path": "src/features/Speed/client"
         },
         "Wins": {
           "$path": "src/features/Wins/client"
+        },
+        "Left": {
+          "$path": "src/features/Left/client"
         }
       }
     }

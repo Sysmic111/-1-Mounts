@@ -1,7 +1,7 @@
 --!strict
 
 local SpeedConfig = {
-	Debug = true,
+	Debug = false,
 
 	BaseWalkSpeed = 10,
 	MaxWalkSpeed = 80,

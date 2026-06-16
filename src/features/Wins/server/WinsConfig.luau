@@ -3,7 +3,7 @@
 local WinsConfig = {
 	Debug = true,
 
-	TagName = "Wins",
+	TagName = "WinButton",
 	TouchPartName = "TouchPart",
 	WinsQuantityAttribute = "WinsQuantity",
 
