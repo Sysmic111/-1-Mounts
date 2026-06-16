@@ -1,8 +1,7 @@
 {
-  "name": "-1-Mounts",
+  "name": "Mounts",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
@@ -11,20 +10,36 @@
         "$path": "Packages"
       }
     },
-
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
       },
       "ServerPackages": {
         "$path": "ServerPackages"
+      },
+      "Environment": {
+        "$path": "src/features/Environment/server"
+      },
+      "Speed": {
+        "$path": "src/features/Speed/server"
+      },
+      "Wins": {
+        "$path": "src/features/Wins/server"
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {
           "$path": "src/client"
+        },
+        "Environment": {
+          "$path": "src/features/Environment/client"
+        },
+        "Speed": {
+          "$path": "src/features/Speed/client"
+        },
+        "Wins": {
+          "$path": "src/features/Wins/client"
         }
       }
     }
