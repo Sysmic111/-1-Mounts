@@ -19,5 +19,5 @@ local Packet = require(game.ReplicatedStorage.Packages.Packet)
 ]]
 
 return {
-	SpeedGained = Packet("SpeedGained", "NumberU16"),
+	RequestSpeedGain = Packet("RequestSpeedGain"),
 }

@@ -10,7 +10,7 @@ local SpeedConfig = {
 	BaseRequiredSpeed = 5,
 	RequiredSpeedExponent = 1.45,
 
-	StudsPerSpeed = 1,
+	StudsPerSpeed = 5,
 	MovementCheckInterval = 0.1,
 	TeleportDistanceBuffer = 25,
 	TeleportSpeedMultiplier = 4,

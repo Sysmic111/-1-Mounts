@@ -1,5 +1,6 @@
 --!strict
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +23,10 @@ local popupSounds = {
 	uiSounds:WaitForChild("ui_menu_popup_03"),
 	uiSounds:WaitForChild("ui_menu_popup_04"),
 }
+
+local sfx = SoundService:WaitForChild("SFX")
+local levelUpSoundPower = sfx:WaitForChild("sci-fi_power_up_05")
+local levelUpSoundSparkle = sfx:WaitForChild("collect_item_sparkle_pop_09")
 
 local ORIGINAL_SIZE = speedTemplate.Size
 
@@ -64,7 +69,123 @@ local function showSpeedGain(amount: number)
 	end)
 end
 
-Packets.SpeedGained.OnClientEvent:Connect(showSpeedGain)
+-- Movement tracking
+local lastPosition: Vector3? = nil
+local distanceRemainder = 0
+local lastPacketTime = 0
+
+local function resetTracking()
+	lastPosition = nil
+	distanceRemainder = 0
+end
+
+player.CharacterAdded:Connect(resetTracking)
+
+RunService.Heartbeat:Connect(function()
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = character:FindFirstChildOfClass("Humanoid") :: Humanoid?
+	if not rootPart or not humanoid or humanoid.Health <= 0 then
+		lastPosition = nil
+		return
+	end
+
+	local currentPosition = rootPart.Position
+	if not lastPosition then
+		lastPosition = currentPosition
+		return
+	end
+
+	local moved = (currentPosition - lastPosition).Magnitude
+	lastPosition = currentPosition
+
+	if moved == 0 then
+		return
+	end
+
+	distanceRemainder += moved
+
+	local now = os.clock()
+	if distanceRemainder >= SpeedConfig.StudsPerSpeed and (now - lastPacketTime) >= SpeedConfig.MovementCheckInterval then
+		distanceRemainder -= SpeedConfig.StudsPerSpeed
+		lastPacketTime = now
+		Packets.RequestSpeedGain:Fire()
+		showSpeedGain(1)
+	end
+end)
+
+-- Level up effects
+local function emitLevelUpParticles()
+	local character = player.Character
+	if not character then
+		return
+	end
+	local rootPart = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not rootPart then
+		return
+	end
+
+	local burstEmitter = Instance.new("ParticleEmitter")
+	burstEmitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	burstEmitter.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 220, 50)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 150)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+	})
+	burstEmitter.LightEmission = 1
+	burstEmitter.LightInfluence = 0
+	burstEmitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.8),
+		NumberSequenceKeypoint.new(0.3, 1.2),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	burstEmitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.8, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	burstEmitter.Speed = NumberRange.new(18, 30)
+	burstEmitter.SpreadAngle = Vector2.new(50, 50)
+	burstEmitter.Lifetime = NumberRange.new(0.6, 1.2)
+	burstEmitter.Rate = 0
+	burstEmitter.RotSpeed = NumberRange.new(-200, 200)
+	burstEmitter.Rotation = NumberRange.new(0, 360)
+	burstEmitter.Parent = rootPart
+	burstEmitter:Emit(70)
+
+	local ringEmitter = Instance.new("ParticleEmitter")
+	ringEmitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	ringEmitter.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 220, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
+	})
+	ringEmitter.LightEmission = 1
+	ringEmitter.LightInfluence = 0
+	ringEmitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1.5),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	ringEmitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.7, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	ringEmitter.Speed = NumberRange.new(25, 40)
+	ringEmitter.SpreadAngle = Vector2.new(180, 0)
+	ringEmitter.Lifetime = NumberRange.new(0.3, 0.5)
+	ringEmitter.Rate = 0
+	ringEmitter.Parent = rootPart
+	ringEmitter:Emit(40)
+
+	task.delay(3, function()
+		burstEmitter:Destroy()
+		ringEmitter:Destroy()
+	end)
+end
 
 -- Progress bar
 local bot = playerGui:WaitForChild("Bot")
@@ -74,6 +195,31 @@ local speedLabel = progress:WaitForChild("Content"):WaitForChild("Speed") :: Tex
 local fill = progress:WaitForChild("Fill") :: Frame
 
 local fillTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local progressOriginalSize = progress.Size
+
+local function animateLevelUp()
+	local punchSize = UDim2.new(
+		progressOriginalSize.X.Scale,
+		progressOriginalSize.X.Offset,
+		progressOriginalSize.Y.Scale * 1.25,
+		math.round(progressOriginalSize.Y.Offset * 1.25)
+	)
+	TweenService:Create(progress, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = punchSize,
+	}):Play()
+	task.delay(0.1, function()
+		TweenService:Create(
+			progress,
+			TweenInfo.new(0.35, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out),
+			{ Size = progressOriginalSize }
+		):Play()
+	end)
+
+	levelUpSoundPower:Play()
+	levelUpSoundSparkle:Play()
+
+	emitLevelUpParticles()
+end
 
 local function updateProgress(animateFill: boolean)
 	local level = DataService:get({ "Level" }) or 1
@@ -100,5 +246,6 @@ task.spawn(function()
 	end)
 	DataService:getChangedSignal({ "Level" }):Connect(function()
 		updateProgress(true)
+		animateLevelUp()
 	end)
 end)

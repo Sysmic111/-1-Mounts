@@ -20,6 +20,9 @@
       "Environment": {
         "$path": "src/features/Environment/server"
       },
+      "Mounts": {
+        "$path": "src/features/Mounts/server"
+      },
       "Speed": {
         "$path": "src/features/Speed/server"
       },
@@ -34,6 +37,9 @@
         },
         "Environment": {
           "$path": "src/features/Environment/client"
+        },
+        "Mounts": {
+          "$path": "src/features/Mounts/client"
         },
         "Speed": {
           "$path": "src/features/Speed/client"
