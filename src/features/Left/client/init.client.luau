@@ -243,10 +243,6 @@ btnRebirth.MouseButton1Click:Connect(function()
 	toggleMenu(menuRebirth, populateRebirthMenu)
 end)
 
-btnIndex.MouseButton1Click:Connect(function()
-	toggleMenu(menuIndex, populateIndexMenu)
-end)
-
 closeEvolve.MouseButton1Click:Connect(function()
 	closeAll()
 end)
@@ -284,23 +280,28 @@ local function buildMountGrid(mountList: { MountsConfig.MountData }, ownedMounts
 		local card  = indexTemplate:Clone()
 		local ct    = card:WaitForChild("CardTemplate") :: ImageButton
 
-		;(ct:FindFirstChild("CardName") :: TextLabel).Text = owned and mount.Name or "??????"
+		local cardName = ct:FindFirstChild("CardName") :: TextLabel
+		cardName.Text = owned and mount.Name or "??????"
 
 		local image1 = ct:FindFirstChild("Image1") :: ImageLabel
 		image1.Image          = mount.Image
 		image1.ImageColor3    = owned and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
 
-		;(ct:FindFirstChild("Odds") :: TextLabel).Text = owned and ("x" .. tostring(mount.Multiplier)) or "x?"
+		local oddsLabel = ct:FindFirstChild("Odds") :: TextLabel
+		oddsLabel.Text = owned and ("x" .. tostring(mount.Multiplier)) or "x?"
 
-		;(ct:FindFirstChild("Equipped") :: Frame).Visible = (mount.Name == equippedName)
+		local equippedFrame = ct:FindFirstChild("Equipped") :: Frame
+		equippedFrame.Visible = (mount.Name == equippedName)
 
 		ct.MouseButton1Click:Connect(function()
 			if not owned then return end
 			Packets.EquipMount:Fire(mount.Name)
 		end)
 
+		card.Visible = true
 		card.Parent = grid
 	end
+	grid.Visible = true
 	return grid
 end
 
@@ -310,27 +311,39 @@ local function buildTitleRow(text: string, owned: number, total: number): Frame
 	local progress  = t:FindFirstChild("Progress")  :: TextLabel
 	label.Text      = text
 	progress.Text   = owned .. "/" .. total
+	t.Visible       = true
 	return t
 end
 
 local function countOwned(list: { MountsConfig.MountData }, ownedMounts: {[string]: boolean}): number
 	local n = 0
-	for _, m in list do if ownedMounts[m.Name] then n += 1 end end
+	for _, m in list do
+		if ownedMounts[m.Name] then
+			n += 1
+		end
+	end
 	return n
 end
 
 local function populateWorldGrid(worldKey: string, ownedMounts: {[string]: boolean}, equippedName: string)
 	clearIndexScrolling()
 
-	local normalMounts  = (MountsConfig :: any)[worldKey] :: { MountsConfig.MountData }
-	local secretMounts  = MountsConfig.Premium
+	local normalMounts = (MountsConfig :: any)[worldKey] :: { MountsConfig.MountData }
+	local secretMounts = MountsConfig.Premium
+	local order        = 0
 
-	buildTitleRow("Mounts", countOwned(normalMounts, ownedMounts), #normalMounts).Parent = indexScrolling
-	buildMountGrid(normalMounts, ownedMounts, equippedName).Parent = indexScrolling
+	local function nextItem(item: GuiObject)
+		order += 1
+		item.LayoutOrder = order
+		item.Parent = indexScrolling
+	end
+
+	nextItem(buildTitleRow("Mounts", countOwned(normalMounts, ownedMounts), #normalMounts))
+	nextItem(buildMountGrid(normalMounts, ownedMounts, equippedName))
 
 	if #secretMounts > 0 then
-		buildTitleRow("Secret Mounts", countOwned(secretMounts, ownedMounts), #secretMounts).Parent = indexScrolling
-		buildMountGrid(secretMounts, ownedMounts, equippedName).Parent = indexScrolling
+		nextItem(buildTitleRow("Secret Mounts", countOwned(secretMounts, ownedMounts), #secretMounts))
+		nextItem(buildMountGrid(secretMounts, ownedMounts, equippedName))
 	end
 end
 
@@ -347,11 +360,14 @@ local function populateIndexMenu()
 			local tab      = recordTemplate:Clone()
 			local imgLabel = tab:FindFirstChild("ImageLabel") :: ImageLabel?
 			local interior = imgLabel and imgLabel:FindFirstChild("Interior") :: ImageLabel?
-			if interior then interior.Image = world.Image end
+			if interior then
+				interior.Image = world.Image
+			end
 
-			local selected     = tab:FindFirstChild("Selected") :: Frame
-			selected.Visible   = (world.Key == selectedWorldKey)
-			tab.Parent         = indexLeftPanel
+			local selected   = tab:FindFirstChild("Selected") :: Frame
+			selected.Visible = (world.Key == selectedWorldKey)
+			tab.Visible      = true
+			tab.Parent       = indexLeftPanel
 
 			local worldKey = world.Key
 			tab.MouseButton1Click:Connect(function()
@@ -359,7 +375,9 @@ local function populateIndexMenu()
 				for _, t in indexLeftPanel:GetChildren() do
 					if t:IsA("ImageButton") then
 						local s = t:FindFirstChild("Selected") :: Frame?
-						if s then s.Visible = (t == tab) end
+						if s then
+							s.Visible = (t == tab)
+						end
 					end
 				end
 				local latest = (DataService:get({ "EquippedMount" }) or "Chonk") :: string
@@ -371,6 +389,10 @@ local function populateIndexMenu()
 		populateWorldGrid(selectedWorldKey, ownedMounts, equippedName)
 	end)
 end
+
+btnIndex.MouseButton1Click:Connect(function()
+	toggleMenu(menuIndex, populateIndexMenu)
+end)
 
 -- Re-render grid si Index está abierto y cambia montura o inventario
 task.spawn(function()

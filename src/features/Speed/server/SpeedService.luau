@@ -54,7 +54,7 @@ function SpeedService:init(dataService: DataServiceServer): ()
 		end)
 	end
 
-	Packets.RequestSpeedGain.OnServerEvent:Connect(function(player: Player)
+	Packets.RequestSpeedGain.OnServerEvent:Connect(function(player: Player, treadmillMultiplier: number)
 		local now = os.clock()
 		local lastTime = self._lastRequestTimes[player] or 0
 		if (now - lastTime) < SpeedConfig.MovementCheckInterval then
@@ -62,8 +62,9 @@ function SpeedService:init(dataService: DataServiceServer): ()
 		end
 		self._lastRequestTimes[player] = now
 
+		local tm = math.max(1, treadmillMultiplier or 1)
 		local totalMultiplier = (player:GetAttribute("TotalMultiplier") or 1) :: number
-		self:_addSpeed(player, math.ceil(totalMultiplier))
+		self:_addSpeed(player, math.ceil(totalMultiplier * tm))
 	end)
 end
 

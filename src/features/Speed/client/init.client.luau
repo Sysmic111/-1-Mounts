@@ -73,7 +73,8 @@ local function showSpeedGain(amount: number)
 	end)
 end
 
-local function isAboveTreadmill(hrp: BasePart): boolean
+-- Returns the Multiplier attribute of the treadmill the HRP is above, or nil if not on any.
+local function getTreadmillMultiplier(hrp: BasePart): number?
 	for _, model in CollectionService:GetTagged("Treadmill") do
 		local pp = (model :: Model).PrimaryPart
 		if not pp then continue end
@@ -83,10 +84,10 @@ local function isAboveTreadmill(hrp: BasePart): boolean
 			and math.abs(localPos.Z) <= half.Z
 			and localPos.Y >= -1
 			and localPos.Y <= half.Y + 8 then
-			return true
+			return (model :: Model):GetAttribute("Multiplier") or 1
 		end
 	end
-	return false
+	return nil
 end
 
 -- Movement tracking
@@ -116,7 +117,8 @@ RunService.Heartbeat:Connect(function(dt: number)
 
 	local now = os.clock()
 
-	local onTreadmill = isAboveTreadmill(rootPart)
+	local treadmillMultiplier = getTreadmillMultiplier(rootPart)
+	local onTreadmill = treadmillMultiplier ~= nil
 	local wasOnTreadmill = character:GetAttribute("OnTreadmill") == true
 	if onTreadmill ~= wasOnTreadmill then
 		character:SetAttribute("OnTreadmill", onTreadmill)
@@ -127,8 +129,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 		if treadmillDistanceRemainder >= SpeedConfig.StudsPerSpeed and (now - lastPacketTime) >= SpeedConfig.MovementCheckInterval then
 			treadmillDistanceRemainder -= SpeedConfig.StudsPerSpeed
 			lastPacketTime = now
-			Packets.RequestSpeedGain:Fire()
-			showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number))
+			local tm = treadmillMultiplier :: number
+			Packets.RequestSpeedGain:Fire(tm)
+			showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number * tm))
 		end
 		lastPosition = rootPart.Position
 		return
@@ -142,17 +145,20 @@ RunService.Heartbeat:Connect(function(dt: number)
 		return
 	end
 
+	if humanoid.MoveDirection.Magnitude == 0 then
+		lastPosition = currentPosition
+		return
+	end
+
 	local moved = (currentPosition - lastPosition).Magnitude
 	lastPosition = currentPosition
-
-	if moved == 0 then return end
 
 	distanceRemainder += moved
 
 	if distanceRemainder >= SpeedConfig.StudsPerSpeed and (now - lastPacketTime) >= SpeedConfig.MovementCheckInterval then
 		distanceRemainder -= SpeedConfig.StudsPerSpeed
 		lastPacketTime = now
-		Packets.RequestSpeedGain:Fire()
+		Packets.RequestSpeedGain:Fire(1)
 		showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number))
 	end
 end)
