@@ -3,8 +3,9 @@ local Players           = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Packets     = require(ReplicatedStorage.Shared.Packets)
-local DataService = require(ReplicatedStorage.Packages.DataService).client
+local Packets      = require(ReplicatedStorage.Shared.Packets)
+local DataService  = require(ReplicatedStorage.Packages.DataService).client
+local FormatNumber = require(ReplicatedStorage.Packages.FormatNumber)
 
 local player = Players.LocalPlayer
 
@@ -68,10 +69,10 @@ local function initButton(instance: Instance): ()
 			local stepsLabel = sg:FindFirstChild("Steps")        :: TextLabel?
 			local winsLabel  = sg:FindFirstChild("RequiredWins") :: TextLabel?
 			if stepsLabel then
-				stepsLabel.Text = "x" .. tostring(inc)
+				stepsLabel.Text = "+" .. tostring(inc) .. "/Steps"
 			end
 			if winsLabel then
-				winsLabel.Text = tostring(wins)
+				winsLabel.Text = FormatNumber:formatNumberCoins(wins) .. " Wins Required"
 			end
 		end
 	end

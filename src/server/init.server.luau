@@ -14,6 +14,7 @@ local AgilityService   = require(ServerScriptService.Agility.AgilityService)
 local StagesService    = require(ServerScriptService.Stages.StagesService)
 local RobuxService     = require(ServerScriptService.Robux.RobuxService)
 local StepsService     = require(ServerScriptService.Steps.StepsService)
+local PremiumMountsService = require(ServerScriptService.PremiumMounts.PremiumMountsService)
 
 DataService:init({
 	--useMock = true,
@@ -34,6 +35,7 @@ DataService:init({
 		TreadmillRuby    = false,
 		StepsEquipped    = 1,
 		StepUnlocked_1   = true,
+		PendingPremiumWins = 0,
 	},
 })
 
@@ -43,7 +45,7 @@ SpeedService:setMountsService(MountsService)
 MountsService:setSpeedService(SpeedService)
 RebirthService:init(DataService)
 RebirthService:setSpeedService(SpeedService)
-WinsService:init(DataService)
+WinsService:init(DataService, RobuxService)
 EnvironmentService:init()
 PlayTimeService:init()
 PlayTimeService:setSpeedService(SpeedService)
@@ -53,6 +55,7 @@ StagesService:init()
 RobuxService:init(DataService)
 SpeedService:setRobuxService(RobuxService)
 StepsService:init(DataService)
+PremiumMountsService:init(DataService, RobuxService)
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

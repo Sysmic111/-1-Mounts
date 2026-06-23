@@ -12,8 +12,13 @@ type DataServiceServer = {
 	set:         (self: DataServiceServer, player: Player, path: { string }, value: any, dontReplicate: boolean?) -> (),
 }
 
+type ReceiptHandler = (player: Player, receiptInfo: any) -> Enum.ProductPurchaseDecision
+
 local RobuxService = {
 	_dataService = nil :: DataServiceServer?,
+	-- Otros features registran aquí sus Developer Products (productId → handler).
+	-- ProcessReceipt es único en el juego, así que RobuxService actúa como router.
+	_productHandlers = {} :: { [number]: ReceiptHandler },
 }
 
 function RobuxService:init(dataService: DataServiceServer): ()
@@ -24,6 +29,12 @@ function RobuxService:init(dataService: DataServiceServer): ()
 	MarketplaceService.ProcessReceipt = function(receiptInfo)
 		return self:_processReceipt(receiptInfo)
 	end
+end
+
+-- Permite que otros services manejen sus propios Developer Products sin pelear
+-- por ProcessReceipt. El handler corre con el perfil del jugador ya cargado.
+function RobuxService:registerProduct(productId: number, handler: ReceiptHandler): ()
+	self._productHandlers[productId] = handler
 end
 
 -- Returns true only if DataStore confirms the player owns this tier.
@@ -37,8 +48,9 @@ function RobuxService:_processReceipt(receiptInfo: any): Enum.ProductPurchaseDec
 	local productId = receiptInfo.ProductId
 	local playerId  = receiptInfo.PlayerId
 
-	local tier = RobuxConfig.ProductToTier[productId]
-	if not tier then
+	local tier    = RobuxConfig.ProductToTier[productId]
+	local handler = self._productHandlers[productId]
+	if not tier and not handler then
 		-- Unknown product — grant immediately so the player isn't stuck
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
@@ -62,8 +74,13 @@ function RobuxService:_processReceipt(receiptInfo: any): Enum.ProductPurchaseDec
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
+	-- Developer Products registrados por otros features (ej. monturas Premium)
+	if handler then
+		return handler(player, receiptInfo)
+	end
+
 	-- Grant access (idempotent — safe to re-run on duplicate receipts)
-	local key = RobuxConfig.treadmillKey(tier)
+	local key = RobuxConfig.treadmillKey(tier :: string)
 	if ds:get(player, { key }) ~= true then
 		ds:set(player, { key }, true)
 	end

@@ -10,6 +10,7 @@ export type MountData = {
 	Multiplier: number,
 	Image: string,
 	EvolveRequirements: EvolveRequirements?,
+	ProductId: number?, -- Developer Product (solo monturas Premium)
 }
 
 export type WorldData = {
@@ -48,11 +49,19 @@ local MountsConfig = {
 	} :: { MountData },
 
 	Premium = {
-		{ Name = "Vespofuzz",       Multiplier = 100, Image = "rbxassetid://124781012483071", EvolveRequirements = nil },
-		{ Name = "Phantom Chopper", Multiplier = 150, Image = "rbxassetid://119825390796383", EvolveRequirements = nil },
+		{ Name = "Vespofuzz",       Multiplier = 100, Image = "rbxassetid://124781012483071", EvolveRequirements = nil, ProductId = 3606128170 },
+		{ Name = "Phantom Chopper", Multiplier = 150, Image = "rbxassetid://119825390796383", EvolveRequirements = nil, ProductId = 3606128200 },
 	} :: { MountData },
 
 }
+
+-- Devuelve la montura Premium asociada a un Developer Product (o nil)
+function MountsConfig.getPremiumByProductId(productId: number): MountData?
+	for _, mount in MountsConfig.Premium do
+		if mount.ProductId == productId then return mount end
+	end
+	return nil
+end
 
 function MountsConfig.getMountData(name: string): MountData?
 	for _, mount in MountsConfig.World1 do

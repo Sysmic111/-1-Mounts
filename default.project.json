@@ -46,6 +46,9 @@
       },
       "Steps": {
         "$path": "src/features/Steps/server"
+      },
+      "PremiumMounts": {
+        "$path": "src/features/PremiumMounts/server"
       }
     },
     "StarterPlayer": {
@@ -82,6 +85,9 @@
         },
         "Steps": {
           "$path": "src/features/Steps/client"
+        },
+        "PremiumMounts": {
+          "$path": "src/features/PremiumMounts/client"
         }
       }
     }

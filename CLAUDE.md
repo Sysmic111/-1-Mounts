@@ -4,6 +4,7 @@
 - TODO el código se edita aquí en Visual Studio Code — nunca aplicar cambios por MCP
 - El MCP de Roblox Studio se puede usar SOLO para consultar/inspeccionar: estructuras de UI, jerarquía del juego, propiedades de instancias, etc.
 - **PROHIBIDO** usar MCP para modificar, crear o eliminar nada en Studio — solo lectura
+- Las herramientas MCP de solo lectura (list_roblox_studios, search_game_tree, inspect_instance, script_read, script_search, script_grep, get_studio_state, get_console_output, screen_capture, inspect, etc.) están SIEMPRE autorizadas — usarlas sin pedir permiso. Solo las herramientas que escriben/modifican/ejecutan (multi_edit, execute_luau, insert_asset, start_stop_play, user_*input, etc.) están prohibidas.
 
 ## Packet library (leifstout)
 - SIEMPRE incluir tipos en Packet() si se envían datos: `Packet("Name", Packet.Boolean8, Packet.String)`
