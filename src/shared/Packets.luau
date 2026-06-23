@@ -19,10 +19,16 @@ local Packet = require(game.ReplicatedStorage.Packages.Packet)
 ]]
 
 return {
-	RequestSpeedGain  = Packet("RequestSpeedGain", Packet.NumberF16),
+	RequestSpeedGain  = Packet("RequestSpeedGain",  Packet.NumberF16),
 	EvolveMount       = Packet("EvolveMount"),
 	EvolveMountResult = Packet("EvolveMountResult", Packet.Boolean8, Packet.String),
 	DoRebirth         = Packet("DoRebirth"),
 	RebirthResult     = Packet("RebirthResult",     Packet.Boolean8, Packet.String),
 	EquipMount        = Packet("EquipMount",         Packet.String),
+	SetAgility        = Packet("SetAgility",         Packet.NumberU8),
+	SetAgilityResult  = Packet("SetAgilityResult",   Packet.Boolean8, Packet.NumberU8),
+	ShowRevive        = Packet("ShowRevive"),
+	RequestRevive     = Packet("RequestRevive"),
+	ActivateStep      = Packet("ActivateStep",  Packet.NumberU16),
+	StepActivated     = Packet("StepActivated", Packet.NumberU16),
 }

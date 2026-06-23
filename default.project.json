@@ -31,6 +31,21 @@
       },
       "Rebirth": {
         "$path": "src/features/Rebirth/server"
+      },
+      "PlayTime": {
+        "$path": "src/features/PlayTime/server"
+      },
+      "Agility": {
+        "$path": "src/features/Agility/server"
+      },
+      "Stages": {
+        "$path": "src/features/Stages/server"
+      },
+      "Robux": {
+        "$path": "src/features/Robux/server"
+      },
+      "Steps": {
+        "$path": "src/features/Steps/server"
       }
     },
     "StarterPlayer": {
@@ -52,6 +67,21 @@
         },
         "Left": {
           "$path": "src/features/Left/client"
+        },
+        "PlayTime": {
+          "$path": "src/features/PlayTime/client"
+        },
+        "Agility": {
+          "$path": "src/features/Agility/client"
+        },
+        "Stages": {
+          "$path": "src/features/Stages/client"
+        },
+        "Robux": {
+          "$path": "src/features/Robux/client"
+        },
+        "Steps": {
+          "$path": "src/features/Steps/client"
         }
       }
     }

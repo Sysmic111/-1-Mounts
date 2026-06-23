@@ -1,10 +1,36 @@
 --!strict
 
-local Players = game:GetService("Players")
+local Players           = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 
 local SpeedConfig    = require(game.ReplicatedStorage.Shared.SpeedConfig)
 local RebirthConfig  = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local Packets        = require(game.ReplicatedStorage.Shared.Packets)
+
+-- Returns the highest treadmill Multiplier the player is allowed to use,
+-- considering both rebirth-gated and Robux-gated treadmills.
+local function getMaxTreadmillMultiplier(player: Player, rebirthCount: number, robuxService: any): number
+	local max = 1
+	for _, model in CollectionService:GetTagged("Treadmill") do
+		local tier = (model :: Model):GetAttribute("Robux") :: string?
+		local mult = ((model :: Model):GetAttribute("Multiplier") or 1) :: number
+		if tier then
+			-- Robux-gated: validate ownership through RobuxService (server authority)
+			if robuxService and robuxService:hasTreadmill(player, tier) then
+				if mult > max then
+					max = mult
+				end
+			end
+		else
+			-- Rebirth-gated
+			local req = ((model :: Model):GetAttribute("Rebirth") or 0) :: number
+			if rebirthCount >= req and mult > max then
+				max = mult
+			end
+		end
+	end
+	return max
+end
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -14,9 +40,11 @@ type DataServiceServer = {
 }
 
 local SpeedService = {
-	_dataService = nil :: DataServiceServer?,
-	_mountsService = nil :: any,
-	_connections = {} :: { [Player]: { RBXScriptConnection } },
+	_dataService      = nil :: DataServiceServer?,
+	_mountsService    = nil :: any,
+	_playTimeService  = nil :: any,
+	_robuxService     = nil :: any,
+	_connections      = {} :: { [Player]: { RBXScriptConnection } },
 	_lastRequestTimes = {} :: { [Player]: number },
 }
 
@@ -30,8 +58,16 @@ local function getHumanoid(character: Model): Humanoid?
 	return character:FindFirstChildOfClass("Humanoid")
 end
 
+function SpeedService:setRobuxService(robuxService: any): ()
+	self._robuxService = robuxService
+end
+
 function SpeedService:setMountsService(mountsService: any): ()
 	self._mountsService = mountsService
+end
+
+function SpeedService:setPlayTimeService(playTimeService: any): ()
+	self._playTimeService = playTimeService
 end
 
 function SpeedService:init(dataService: DataServiceServer): ()
@@ -63,8 +99,15 @@ function SpeedService:init(dataService: DataServiceServer): ()
 		self._lastRequestTimes[player] = now
 
 		local tm = math.max(1, treadmillMultiplier or 1)
+
+		if self._dataService and self._dataService:hasProfile(player) then
+			local rebirthCount = (self._dataService:get(player, { "Rebirth" }) or 0) :: number
+			tm = math.min(tm, getMaxTreadmillMultiplier(player, rebirthCount, self._robuxService))
+		end
+
 		local totalMultiplier = (player:GetAttribute("TotalMultiplier") or 1) :: number
-		self:_addSpeed(player, math.ceil(totalMultiplier * tm))
+		local stepsMultiplier = (player:GetAttribute("EquippedSteps")    or 1) :: number
+		self:_addSpeed(player, math.ceil(totalMultiplier * stepsMultiplier * tm))
 	end)
 end
 
@@ -111,10 +154,16 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 
 	local rebirthCount      = (dataService:get(player, { "Rebirth" }) or 0) :: number
 	local rebirthMultiplier = RebirthConfig.getWinsMultiplier(rebirthCount)
-	local total             = mountMultiplier * rebirthMultiplier
+
+	local playTimeMultiplier = 1
+	if self._playTimeService then
+		playTimeMultiplier = self._playTimeService:getMultiplier(player)
+	end
+
+	local total = mountMultiplier * rebirthMultiplier * playTimeMultiplier
 
 	player:SetAttribute("TotalMultiplier", total)
-	debugPrint(`TotalMultiplier de {player.Name}: x{total} (mount x{mountMultiplier} * rebirth x{rebirthMultiplier})`)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (mount x{mountMultiplier} * rebirth x{rebirthMultiplier} * playtime x{playTimeMultiplier})`)
 end
 
 function SpeedService:updateTotalMultiplier(player: Player): ()

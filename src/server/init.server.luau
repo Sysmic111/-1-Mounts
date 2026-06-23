@@ -5,10 +5,15 @@ local Workspace = game:GetService("Workspace")
 
 local DataService = require(ReplicatedStorage.Packages.DataService).server
 local EnvironmentService = require(ServerScriptService.Environment.EnvironmentService)
-local SpeedService = require(ServerScriptService.Speed.SpeedService)
-local WinsService    = require(ServerScriptService.Wins.WinsService)
-local MountsService  = require(ServerScriptService.Mounts.MountsService)
-local RebirthService = require(ServerScriptService.Rebirth.RebirthService)
+local SpeedService    = require(ServerScriptService.Speed.SpeedService)
+local WinsService     = require(ServerScriptService.Wins.WinsService)
+local MountsService   = require(ServerScriptService.Mounts.MountsService)
+local RebirthService  = require(ServerScriptService.Rebirth.RebirthService)
+local PlayTimeService  = require(ServerScriptService.PlayTime.PlayTimeService)
+local AgilityService   = require(ServerScriptService.Agility.AgilityService)
+local StagesService    = require(ServerScriptService.Stages.StagesService)
+local RobuxService     = require(ServerScriptService.Robux.RobuxService)
+local StepsService     = require(ServerScriptService.Steps.StepsService)
 
 DataService:init({
 	--useMock = true,
@@ -17,12 +22,18 @@ DataService:init({
 	--viewedUserId = 111,
 	--overridenUserId = 111,
 	template = {
-		SpeedCurrency = 0,
-		WinCurrency = 0,
-		Level = 1,
-		Rebirth = 0,
-		EquippedMount = "Chonk",
-		Mounts = { Chonk = true },
+		SpeedCurrency    = 0,
+		WinCurrency      = 0,
+		Level            = 1,
+		Rebirth          = 0,
+		EquippedMount    = "Chonk",
+		Mounts           = { Chonk = true },
+		TreadmillGold    = false,
+		TreadmillDiamond = false,
+		TreadmillEmerald = false,
+		TreadmillRuby    = false,
+		StepsEquipped    = 1,
+		StepUnlocked_1   = true,
 	},
 })
 
@@ -34,6 +45,14 @@ RebirthService:init(DataService)
 RebirthService:setSpeedService(SpeedService)
 WinsService:init(DataService)
 EnvironmentService:init()
+PlayTimeService:init()
+PlayTimeService:setSpeedService(SpeedService)
+SpeedService:setPlayTimeService(PlayTimeService)
+AgilityService:init(DataService)
+StagesService:init()
+RobuxService:init(DataService)
+SpeedService:setRobuxService(RobuxService)
+StepsService:init(DataService)
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

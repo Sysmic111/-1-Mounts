@@ -1,6 +1,7 @@
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
 
 local clickSound = SoundService:WaitForChild("SFX"):WaitForChild("UI"):WaitForChild("ui_button_simple_click_05")
 local hoverSound = SoundService:WaitForChild("SFX"):WaitForChild("UI"):WaitForChild("ui_menu_button_scroll_page_05")
@@ -57,7 +58,7 @@ local tags = {
 				})
 			item.MouseEnter:Connect(function()
 				hoverSound:Play()
-				item:TweenSize(UDim2.new(1, 0, originalSize.Y.Scale * 1.2, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, false)
+				item:TweenSize(UDim2.new(originalSize.X.Scale, originalSize.X.Offset, originalSize.Y.Scale * 1.2, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, false)
 				border.Offset = Vector2.new(0, 0)
 				local tween =
 					TweenService:Create(border, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -103,6 +104,107 @@ local tags = {
 		end,
 		Remove = function(item) end,
 	},
+	SideMenuRainbowButton = {
+		Add = function(item)
+			local originalSize = item.Size
+			local border = item:WaitForChild("Button"):WaitForChild("Border"):WaitForChild("UIGradient")
+			local frame = item:WaitForChild("Button"):WaitForChild("Frame"):WaitForChild("UIGradient")
+			local icon = item:WaitForChild("Button"):WaitForChild("ImageLabel")
+			local glare = item:WaitForChild("Button"):WaitForChild("Glare") :: ImageLabel
+
+			local GLARE_NORMAL_SPEED = 25
+			local GLARE_HOVER_SPEED  = 70
+			local glareSpeed = GLARE_NORMAL_SPEED
+			glare.ImageTransparency = 0.4
+
+			local glareConn = RunService.Heartbeat:Connect(function(dt)
+				glare.Rotation += glareSpeed * dt
+			end)
+			connections[item] = glareConn
+
+			local originalFrameColor = frame.Color
+			local hueOffset  = 0
+			local rainbowConn: RBXScriptConnection?
+
+			local function stopRainbow()
+				if rainbowConn then
+					rainbowConn:Disconnect()
+					rainbowConn = nil
+				end
+				frame.Color = originalFrameColor
+			end
+
+			local function startRainbow()
+				stopRainbow()
+				rainbowConn = RunService.Heartbeat:Connect(function(dt)
+					hueOffset = (hueOffset + dt * 0.4) % 1
+					frame.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0,    Color3.fromHSV((0/6 + hueOffset) % 1, 1, 1)),
+						ColorSequenceKeypoint.new(0.2,  Color3.fromHSV((1/6 + hueOffset) % 1, 1, 1)),
+						ColorSequenceKeypoint.new(0.4,  Color3.fromHSV((2/6 + hueOffset) % 1, 1, 1)),
+						ColorSequenceKeypoint.new(0.6,  Color3.fromHSV((3/6 + hueOffset) % 1, 1, 1)),
+						ColorSequenceKeypoint.new(0.8,  Color3.fromHSV((4/6 + hueOffset) % 1, 1, 1)),
+						ColorSequenceKeypoint.new(1,    Color3.fromHSV((5/6 + hueOffset) % 1, 1, 1)),
+					})
+				end)
+			end
+
+			item.MouseEnter:Connect(function()
+				hoverSound:Play()
+				item:TweenSize(UDim2.new(originalSize.X.Scale, originalSize.X.Offset, originalSize.Y.Scale * 1.2, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, false)
+				border.Offset = Vector2.new(0, 0)
+				TweenService:Create(border, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Offset = Vector2.new(1, 0),
+				}):Play()
+				startRainbow()
+				glareSpeed = GLARE_HOVER_SPEED
+				TweenService:Create(glare, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					ImageTransparency = 0,
+				}):Play()
+				icon.Rotation = 0
+				TweenService:Create(icon, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Rotation = 10,
+				}):Play()
+			end)
+			item.MouseLeave:Connect(function()
+				border.Offset = Vector2.new(0, 0)
+				stopRainbow()
+				glareSpeed = GLARE_NORMAL_SPEED
+				TweenService:Create(glare, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					ImageTransparency = 0.4,
+				}):Play()
+				item:TweenSize(originalSize, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, true)
+				TweenService:Create(icon, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					Rotation = 0,
+				}):Play()
+			end)
+			item.MouseButton1Down:Connect(function()
+				clickSound:Play()
+				icon:TweenPosition(
+					UDim2.new(0.5, 0, 0.3, 0),
+					Enum.EasingDirection.Out,
+					Enum.EasingStyle.Quad,
+					0.1,
+					false
+				)
+			end)
+			item.MouseButton1Up:Connect(function()
+				icon:TweenPosition(
+					UDim2.new(0.5, 0, 0.35, 0),
+					Enum.EasingDirection.Out,
+					Enum.EasingStyle.Quad,
+					0.1,
+					true
+				)
+			end)
+		end,
+		Remove = function(item)
+			if connections[item] then
+				connections[item]:Disconnect()
+				connections[item] = nil
+			end
+		end,
+	},
 	InternalSideMenuButton = {
 		Add = function(item)
 			local originalSize = item.Size
@@ -143,7 +245,7 @@ local tags = {
 
 			item.MouseEnter:Connect(function()
 				hoverSound:Play()
-				item:TweenSize(UDim2.new(1, 0, originalSize.Y.Scale * 1.2, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, false)
+				item:TweenSize(UDim2.new(originalSize.X.Scale, originalSize.X.Offset, originalSize.Y.Scale * 1.2, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.1, false)
 				border.Offset = Vector2.new(0, 0)
 				TweenService:Create(border, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 					Offset = Vector2.new(1, 0),

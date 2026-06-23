@@ -6,10 +6,11 @@ local SoundService = game:GetService("SoundService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
-local Packets = require(ReplicatedStorage.Shared.Packets)
+local Packets      = require(ReplicatedStorage.Shared.Packets)
 local FormatNumber = require(ReplicatedStorage.Packages.FormatNumber)
-local DataService = require(ReplicatedStorage.Packages.DataService).client
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
+local DataService  = require(ReplicatedStorage.Packages.DataService).client
+local SpeedConfig  = require(ReplicatedStorage.Shared.SpeedConfig)
+local RobuxConfig  = require(ReplicatedStorage.Shared.RobuxConfig)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -39,15 +40,18 @@ local function showSpeedGain(amount: number)
 
 	local clone = speedTemplate:Clone()
 	local speedLabel = clone:FindFirstChild("Speed") :: TextLabel?
-	if not speedLabel then clone:Destroy() return end
+	if not speedLabel then
+		clone:Destroy()
+		return
+	end
 
 	local uiStroke = speedLabel:FindFirstChildOfClass("UIStroke") :: UIStroke
 	local imageLabel = clone:FindFirstChild("ImageLabel") :: ImageLabel
 
 	speedLabel.Text = "+ " .. FormatNumber:formatNumberCoins(amount)
 
-	local randomX = 0.5 + (math.random() * 2 - 1) * 0.25
-	local randomY = 0.5 + (math.random() * 2 - 1) * 0.25
+	local randomX = 0.5 + (math.random() * 2 - 1) * 0.40
+	local randomY = 0.5 + (math.random() * 2 - 1) * 0.40
 	clone.Size = UDim2.new(0, 0, 0, 0)
 	clone.Position = UDim2.fromScale(randomX, randomY)
 	clone.Rotation = math.random(-30, 30)
@@ -68,14 +72,29 @@ local function showSpeedGain(amount: number)
 		TweenService:Create(uiStroke, fadeInfo, { Transparency = 1 }):Play()
 		TweenService:Create(imageLabel, fadeInfo, { ImageTransparency = 1 }):Play()
 		task.delay(1, function()
-			if clone and clone.Parent then clone:Destroy() end
+			if clone and clone.Parent then
+				clone:Destroy()
+			end
 		end)
 	end)
 end
 
 -- Returns the Multiplier attribute of the treadmill the HRP is above, or nil if not on any.
+-- Skips treadmills the player can't access (rebirth gate or unowned Robux tier).
 local function getTreadmillMultiplier(hrp: BasePart): number?
+	local rebirthCount = (DataService:get({ "Rebirth" }) or 0) :: number
+
 	for _, model in CollectionService:GetTagged("Treadmill") do
+		local tier = (model :: Model):GetAttribute("Robux") :: string?
+		if tier then
+			-- Robux-gated: only active when the player owns this tier
+			if DataService:get({ RobuxConfig.treadmillKey(tier) }) ~= true then continue end
+		else
+			-- Rebirth-gated
+			local rebirthReq = ((model :: Model):GetAttribute("Rebirth") or 0) :: number
+			if rebirthCount < rebirthReq then continue end
+		end
+
 		local pp = (model :: Model).PrimaryPart
 		if not pp then continue end
 		local localPos = pp.CFrame:PointToObjectSpace(hrp.Position)
@@ -131,7 +150,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 			lastPacketTime = now
 			local tm = treadmillMultiplier :: number
 			Packets.RequestSpeedGain:Fire(tm)
-			showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number * tm))
+			showSpeedGain(math.ceil(
+				(player:GetAttribute("TotalMultiplier") or 1) :: number
+				* (player:GetAttribute("EquippedSteps")    or 1) :: number
+				* tm
+			))
 		end
 		lastPosition = rootPart.Position
 		return
@@ -159,7 +182,10 @@ RunService.Heartbeat:Connect(function(dt: number)
 		distanceRemainder -= SpeedConfig.StudsPerSpeed
 		lastPacketTime = now
 		Packets.RequestSpeedGain:Fire(1)
-		showSpeedGain(math.ceil((player:GetAttribute("TotalMultiplier") or 1) :: number))
+		showSpeedGain(math.ceil(
+			(player:GetAttribute("TotalMultiplier") or 1) :: number
+			* (player:GetAttribute("EquippedSteps")    or 1) :: number
+		))
 	end
 end)
 
