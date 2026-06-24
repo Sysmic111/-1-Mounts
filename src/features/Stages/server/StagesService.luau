@@ -50,6 +50,18 @@ function StagesService:init(): ()
 	Packets.RequestRevive.OnServerEvent:Connect(function(player: Player)
 		self:_handleRevive(player)
 	end)
+
+	-- El cliente detecta por posición que el jugador tocó una wall en movimiento
+	-- (las walls se mueven localmente vía CFrame y no disparan Touched de forma
+	-- fiable); el servidor mantiene la autoridad y aplica la muerte.
+	Packets.WallHit.OnServerEvent:Connect(function(player: Player)
+		local character = player.Character
+		if not character then return end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			humanoid.Health = 0
+		end
+	end)
 end
 
 function StagesService:_onCharacterAdded(player: Player, character: Model): ()

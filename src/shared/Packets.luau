@@ -31,4 +31,5 @@ return {
 	RequestRevive     = Packet("RequestRevive"),
 	ActivateStep      = Packet("ActivateStep",  Packet.NumberU16),
 	StepActivated     = Packet("StepActivated", Packet.NumberU16),
+	WallHit           = Packet("WallHit"),
 }
