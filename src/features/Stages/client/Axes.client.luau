@@ -52,6 +52,19 @@ local function collectParts(model: Model): { BasePart }
 	return parts
 end
 
+-- Recalcula el pivote como el punto más alto de las partes ya cargadas.
+-- Se llama al registrar Y cada vez que llega una parte nueva por streaming.
+local function computePivot(parts: { BasePart }, cx: number, cz: number): CFrame
+	local maxY = -math.huge
+	for _, part in parts do
+		-- top del bounding box de la part (asumiendo partes aproximadamente rectas)
+		local topY = part.Position.Y + part.Size.Y / 2
+		if topY > maxY then maxY = topY end
+	end
+	local topY = if maxY > -math.huge then maxY else 0
+	return CFrame.new(cx, topY, cz)
+end
+
 -- ── Registro de hachas (robusto ante StreamingEnabled) ─────────────────────────
 -- Con streaming las partes llegan en distinto orden, así que esperamos al
 -- PrimaryPart antes de capturar la pose de reposo y calcular el bounding box.
@@ -72,26 +85,29 @@ local function registerAxe(model: Model)
 			part.Anchored = true
 		end
 
-		-- Pose de reposo (ángulo 0) y punto de giro = tope del bounding box.
-		local restPivot   = model:GetPivot()
-		local cf, size    = model:GetBoundingBox()
-		local topCenter   = Vector3.new(cf.Position.X, cf.Position.Y + size.Y / 2, cf.Position.Z)
-		local pivotPoint  = CFrame.new(topCenter)   -- alineado al mundo → giro limpio sobre eje X
+		-- Pose de reposo (ángulo 0). El pivote se calcula desde el Y máximo real
+		-- de las partes ya cargadas; se recalcula cuando llegan más por streaming.
+		local restPivot  = model:GetPivot()
+		local cx         = restPivot.Position.X
+		local cz         = restPivot.Position.Z
+		local pivotPoint = computePivot(parts, cx, cz)
 
 		axes[model] = {
 			model      = model,
 			restPivot  = restPivot,
 			pivotPoint = pivotPoint,
-			phase      = topCenter.X * PHASE_FREQ,
+			phase      = pivotPoint.Position.X * PHASE_FREQ,
 			parts      = parts,
 		}
 
-		-- Partes que streameen después: anclarlas y sumarlas a la colisión.
+		-- Partes que streameen después: anclarlas, sumarlas a la colisión
+		-- y recalcular el pivote por si alguna queda más arriba.
 		model.DescendantAdded:Connect(function(d)
 			local a = axes[model]
 			if a and d:IsA("BasePart") then
 				d.Anchored = true
 				table.insert(a.parts, d)
+				a.pivotPoint = computePivot(a.parts, cx, cz)
 			end
 		end)
 	end)

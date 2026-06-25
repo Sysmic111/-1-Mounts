@@ -32,7 +32,7 @@ local WALL_COUNT       = 4
 local OPEN_DISTANCE    = 60                     -- studs que la wall se desliza al abrir
 local REFERENCE_LEVEL  = 10                     -- nivel para el que se calibra el timing
 local OPEN_HOLD        = 2.5                    -- segundos que la wall queda totalmente abierta
-local RESET_GAP        = 1.5                    -- pausa antes de reiniciar el ciclo
+local RESET_GAP        = 0                    -- pausa antes de reiniciar el ciclo
 local PLAYER_RADIUS    = 2.5                    -- margen del cuerpo del jugador para la colisión
 local FALLBACK_SPACING = 160 / WALL_COUNT       -- studs entre walls si falta alguna posición
 
