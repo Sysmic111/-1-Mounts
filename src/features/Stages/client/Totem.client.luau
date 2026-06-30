@@ -29,10 +29,10 @@ local PLAYER_RADIUS      = 2.5
 
 -- ── Estado ────────────────────────────────────────────────────────────────────
 type Totem = {
-	model:      Model,
-	baseOrient: CFrame,       -- rotación base del PrimaryPart (sin posición)
-	pivot:      Vector3,      -- posición fija del pivote
-	parts:      { BasePart },
+	model:    Model,
+	baseCF:   CFrame,       -- pivote base completo (posición + orientación)
+	parts:    { BasePart },
+	spawnTime: number,      -- tiempo de servidor en que apareció/se registró
 }
 
 local totems: { [Model]: Totem } = {}
@@ -61,31 +61,32 @@ local function registerTotem(inst: Instance)
 		end
 		if model.Parent == nil then return end
 
-		-- Con PrimaryPart: usar su CFrame como referencia de orientación y pivote.
-		-- Sin PrimaryPart: GetPivot() devuelve el centro del bounding box (orientación
-		-- alineada al mundo), lo que hace que la rotación sea en el Y global — correcto
-		-- para un totem sin orientación especial.
-		local initCF: CFrame = if model.PrimaryPart
-			then (model.PrimaryPart :: BasePart).CFrame
-			else model:GetPivot()
-
-		local baseOrient = CFrame.fromMatrix(
-			Vector3.zero,
-			initCF.RightVector,
-			initCF.UpVector,
-			-initCF.LookVector
-		)
+		-- Usar el pivote del modelo como referencia: es exactamente el punto sobre
+		-- el que opera PivotTo, así que rotar alrededor de él mantiene el totem en
+		-- su sitio (solo gira, no se traslada). GetPivot() respeta el PrimaryPart y
+		-- su PivotOffset si existen.
+		local baseCF: CFrame = model:GetPivot()
 
 		local parts = collectParts(model)
 		for _, part in parts do
 			part.Anchored = true
 		end
 
+		-- Anclar el inicio del giro al momento en que el totem aparece, para que
+		-- arranque desde su orientación base en vez de saltar al ángulo global.
+		-- Si el servidor replica un atributo "SpawnTime", lo usamos para que todos
+		-- los clientes queden perfectamente sincronizados; si no, caemos al tiempo
+		-- de servidor local de este cliente.
+		local spawnAttr = model:GetAttribute("SpawnTime")
+		local spawnTime = if typeof(spawnAttr) == "number"
+			then spawnAttr :: number
+			else Workspace:GetServerTimeNow()
+
 		totems[model] = {
-			model      = model,
-			baseOrient = baseOrient,
-			pivot      = initCF.Position,
-			parts      = parts,
+			model     = model,
+			baseCF    = baseCF,
+			parts     = parts,
+			spawnTime = spawnTime,
 		}
 
 		model.DescendantAdded:Connect(function(d)
@@ -141,12 +142,20 @@ end
 
 -- ── Loop principal ────────────────────────────────────────────────────────────
 RunService.Heartbeat:Connect(function()
-	local now = Workspace:GetServerTimeNow() % 3600
+	local now = Workspace:GetServerTimeNow()
 
-	-- 1) Rotar cada totem a su ángulo determinista.
+	-- 1) Rotar cada totem a su ángulo determinista, relativo a su aparición:
+	--    al aparecer (now == spawnTime) el ángulo es 0, o sea su orientación base.
 	for _, t in totems do
-		local angle = (now * ROT_RAD_PER_SEC) % (math.pi * 2)
-		t.model:PivotTo(CFrame.new(t.pivot) * t.baseOrient * CFrame.Angles(0, angle, 0))
+		local elapsed = now - t.spawnTime
+		local angle = (elapsed * ROT_RAD_PER_SEC) % (math.pi * 2)
+		-- Girar sobre el eje Y del mundo (vertical), fijando la posición del pivote
+		-- y conservando la orientación base del modelo.
+		t.model:PivotTo(
+			CFrame.new(t.baseCF.Position)
+			* CFrame.Angles(0, angle, 0)
+			* t.baseCF.Rotation
+		)
 	end
 
 	-- 2) Detectar contacto del jugador.
