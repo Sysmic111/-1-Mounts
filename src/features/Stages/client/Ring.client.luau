@@ -117,6 +117,11 @@ local function registerRing(inst: Instance)
 			return
 		end
 
+		-- Esperar un frame para que el servidor replique el CFrame antes de capturar originCF.
+		-- Sin esto, originCF puede quedar en (0,0,0) y resetAllEnemies teletransporta el enemy allí.
+		task.wait()
+		if inst.Parent == nil then return end
+
 		local walkTrack, idleTrack = loadAnimations(enemy)
 
 		rings[part] = {

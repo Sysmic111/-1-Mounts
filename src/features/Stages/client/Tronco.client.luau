@@ -45,6 +45,10 @@ local function registerTronco(inst: Instance)
 			task.wait()
 		end
 		if model.Parent == nil then return end
+		if not model.PrimaryPart then
+			warn(`[Tronco] {model:GetFullName()}: sin PrimaryPart asignado`)
+			return
+		end
 
 		local rawA = parent:WaitForChild("PuntoA", 15)
 		local rawB = parent:WaitForChild("PuntoB", 15)
