@@ -385,10 +385,13 @@ local tags = {
 	},
 	InventoryCard = {
 		Add = function(item)
-			local originalSize = item.CardTemplate.Image1.Size
+			local cardTemplate = item:FindFirstChild("CardTemplate")
+			local image1 = cardTemplate and cardTemplate:FindFirstChild("Image1")
+			if not image1 then return end
+			local originalSize = image1.Size
 			item.MouseEnter:Connect(function()
 				whooshDeepSound:Play()
-				TweenService:Create(item.CardTemplate.Image1, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				TweenService:Create(image1, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 					Size = UDim2.new(
 						originalSize.X.Scale * 1.1, originalSize.X.Offset * 1.1,
 						originalSize.Y.Scale * 1.1, originalSize.Y.Offset * 1.1
@@ -396,7 +399,7 @@ local tags = {
 				}):Play()
 			end)
 			item.MouseLeave:Connect(function()
-				TweenService:Create(item.CardTemplate.Image1, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				TweenService:Create(image1, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 					Size = originalSize,
 				}):Play()
 			end)

@@ -17,6 +17,8 @@ local LavaService      = require(ServerScriptService.Stages.LavaService)
 local RobuxService     = require(ServerScriptService.Robux.RobuxService)
 local StepsService     = require(ServerScriptService.Steps.StepsService)
 local PremiumMountsService = require(ServerScriptService.PremiumMounts.PremiumMountsService)
+local HatsService      = require(ServerScriptService.Hats.HatsService)
+local MorphService     = require(ServerScriptService.Mounts.MorphService)
 
 DataService:init({
 	--useMock = true,
@@ -38,6 +40,8 @@ DataService:init({
 		StepsEquipped    = 1,
 		StepUnlocked_1   = true,
 		PendingPremiumWins = 0,
+		Hats             = {},
+		EquippedHat      = "",
 	},
 })
 
@@ -60,6 +64,11 @@ RobuxService:init(DataService)
 SpeedService:setRobuxService(RobuxService)
 StepsService:init(DataService)
 PremiumMountsService:init(DataService, RobuxService)
+MorphService.setDataService(DataService)
+HatsService:init(DataService)
+HatsService:setSpeedService(SpeedService)
+HatsService:setMorphService(MorphService)
+SpeedService:setHatsService(HatsService)
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

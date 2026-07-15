@@ -49,6 +49,9 @@
       },
       "PremiumMounts": {
         "$path": "src/features/PremiumMounts/server"
+      },
+      "Hats": {
+        "$path": "src/features/Hats/server"
       }
     },
     "StarterPlayer": {
@@ -88,6 +91,9 @@
         },
         "PremiumMounts": {
           "$path": "src/features/PremiumMounts/client"
+        },
+        "Hats": {
+          "$path": "src/features/Hats/client"
         }
       }
     }
