@@ -27,6 +27,241 @@ local sfx = SoundService:WaitForChild("SFX")
 local levelUpSoundPower = sfx:WaitForChild("sci-fi_power_up_05")
 local levelUpSoundSparkle = sfx:WaitForChild("collect_item_sparkle_pop_09")
 
+local NOTIFICATION_HOLD_TIME = 3
+local NOTIFICATION_FADE_TIME = 1
+local activeLevelUpBanner: CanvasGroup? = nil
+local levelUpNotificationGeneration = 0
+
+local function createTextLabel(parent: Instance, name: string, text: string, maxTextSize: number, color: Color3): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBlack
+	label.Text = text
+	label.TextColor3 = color
+	label.TextScaled = true
+	label.TextStrokeColor3 = Color3.fromRGB(16, 20, 30)
+	label.TextStrokeTransparency = 0.6
+	label.ZIndex = 103
+	label.Parent = parent
+
+	local textSizeConstraint = Instance.new("UITextSizeConstraint")
+	textSizeConstraint.MinTextSize = 12
+	textSizeConstraint.MaxTextSize = maxTextSize
+	textSizeConstraint.Parent = label
+	return label
+end
+
+local function getLevelUpNotificationGui(): ScreenGui
+	local existing = playerGui:FindFirstChild("LevelUpNotifications")
+	if existing and existing:IsA("ScreenGui") then
+		return existing
+	end
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "LevelUpNotifications"
+	screenGui.DisplayOrder = 100
+	screenGui.IgnoreGuiInset = false
+	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.Parent = playerGui
+	return screenGui
+end
+
+local function createLevelUpBanner(previousLevel: number, newLevel: number): CanvasGroup
+	local banner = Instance.new("CanvasGroup")
+	banner.Name = "LevelUpBanner"
+	banner.AnchorPoint = Vector2.new(0.5, 0)
+	banner.BackgroundColor3 = Color3.fromRGB(52, 72, 105)
+	banner.BackgroundTransparency = 0.15
+	banner.BorderSizePixel = 0
+	banner.ClipsDescendants = true
+	banner.Position = UDim2.new(0.5, 0, 0, 12)
+	banner.Size = UDim2.new(0.9, 0, 0, 116)
+	banner.GroupTransparency = 0
+	banner.ZIndex = 100
+	banner.Parent = getLevelUpNotificationGui()
+
+	local sizeConstraint = Instance.new("UISizeConstraint")
+	sizeConstraint.MinSize = Vector2.new(260, 116)
+	sizeConstraint.MaxSize = Vector2.new(620, 116)
+	sizeConstraint.Parent = banner
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 18)
+	corner.Parent = banner
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(255, 203, 64)
+	stroke.Thickness = 3
+	stroke.Transparency = 0.05
+	stroke.Parent = banner
+
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(76, 94, 137)),
+		ColorSequenceKeypoint.new(0.55, Color3.fromRGB(48, 67, 101)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(33, 91, 112)),
+	})
+	gradient.Rotation = 12
+	gradient.Parent = banner
+
+	local accent = Instance.new("Frame")
+	accent.Name = "Accent"
+	accent.AnchorPoint = Vector2.new(0.5, 1)
+	accent.BackgroundColor3 = Color3.fromRGB(79, 224, 255)
+	accent.BorderSizePixel = 0
+	accent.Position = UDim2.fromScale(0.5, 1)
+	accent.Size = UDim2.new(0.78, 0, 0, 4)
+	accent.ZIndex = 101
+	accent.Parent = banner
+
+	local accentCorner = Instance.new("UICorner")
+	accentCorner.CornerRadius = UDim.new(1, 0)
+	accentCorner.Parent = accent
+
+	local content = Instance.new("Frame")
+	content.Name = "Content"
+	content.BackgroundTransparency = 1
+	content.Position = UDim2.new(0, 18, 0, 9)
+	content.Size = UDim2.new(1, -36, 1, -18)
+	content.ZIndex = 102
+	content.Parent = banner
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 1)
+	layout.Parent = content
+
+	local titleHolder = Instance.new("Frame")
+	titleHolder.Name = "TitleHolder"
+	titleHolder.BackgroundTransparency = 1
+	titleHolder.LayoutOrder = 1
+	titleHolder.Size = UDim2.new(1, 0, 0, 31)
+	titleHolder.ZIndex = 102
+	titleHolder.Parent = content
+	createTextLabel(titleHolder, "Title", "LEVEL UP!", 30, Color3.fromRGB(255, 216, 79))
+
+	local levelHolder = Instance.new("Frame")
+	levelHolder.Name = "LevelHolder"
+	levelHolder.BackgroundTransparency = 1
+	levelHolder.LayoutOrder = 2
+	levelHolder.Size = UDim2.new(1, 0, 0, 23)
+	levelHolder.ZIndex = 102
+	levelHolder.Parent = content
+	createTextLabel(
+		levelHolder,
+		"Level",
+		string.format("LEVEL %d  →  LEVEL %d", previousLevel, newLevel),
+		20,
+		Color3.fromRGB(255, 255, 255)
+	)
+
+	local previousSpeed = SpeedConfig.getWalkSpeedForLevel(previousLevel)
+	local newSpeed = SpeedConfig.getWalkSpeedForLevel(newLevel)
+	local speedTitleHolder = Instance.new("Frame")
+	speedTitleHolder.Name = "SpeedTitleHolder"
+	speedTitleHolder.BackgroundTransparency = 1
+	speedTitleHolder.LayoutOrder = 3
+	speedTitleHolder.Size = UDim2.new(1, 0, 0, 17)
+	speedTitleHolder.ZIndex = 102
+	speedTitleHolder.Parent = content
+	createTextLabel(
+		speedTitleHolder,
+		"MovementSpeedTitle",
+		"MOVEMENT SPEED",
+		15,
+		Color3.fromRGB(105, 226, 255)
+	)
+
+	local speedHolder = Instance.new("Frame")
+	speedHolder.Name = "SpeedHolder"
+	speedHolder.BackgroundTransparency = 1
+	speedHolder.LayoutOrder = 4
+	speedHolder.Size = UDim2.new(1, 0, 0, 23)
+	speedHolder.ZIndex = 102
+	speedHolder.Parent = content
+	createTextLabel(
+		speedHolder,
+		"MovementSpeedValues",
+		string.format("%.1f  →  %.1f", previousSpeed, newSpeed),
+		21,
+		Color3.fromRGB(255, 255, 255)
+	)
+
+	local scale = Instance.new("UIScale")
+	scale.Name = "EntranceScale"
+	scale.Scale = 0.82
+	scale.Parent = banner
+
+	TweenService:Create(
+		banner,
+		TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Position = UDim2.new(0.5, 0, 0, 28) }
+	):Play()
+	TweenService:Create(
+		scale,
+		TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 }
+	):Play()
+
+	return banner
+end
+
+local function showLevelUpNotification(previousLevel: number, newLevel: number)
+	levelUpNotificationGeneration += 1
+	local generation = levelUpNotificationGeneration
+
+	if activeLevelUpBanner then
+		activeLevelUpBanner:Destroy()
+		activeLevelUpBanner = nil
+	end
+
+	local banner = createLevelUpBanner(previousLevel, newLevel)
+	activeLevelUpBanner = banner
+
+	task.delay(NOTIFICATION_HOLD_TIME, function()
+		if generation ~= levelUpNotificationGeneration or activeLevelUpBanner ~= banner or not banner.Parent then
+			return
+		end
+
+		local fadeInfo = TweenInfo.new(NOTIFICATION_FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		TweenService:Create(
+			banner,
+			fadeInfo,
+			{
+				BackgroundTransparency = 1,
+				GroupTransparency = 1,
+				Position = UDim2.new(0.5, 0, 0, 18),
+			}
+		):Play()
+
+		for _, descendant in banner:GetDescendants() do
+			if descendant:IsA("TextLabel") then
+				TweenService:Create(descendant, fadeInfo, {
+					TextTransparency = 1,
+					TextStrokeTransparency = 1,
+				}):Play()
+			elseif descendant:IsA("UIStroke") then
+				TweenService:Create(descendant, fadeInfo, { Transparency = 1 }):Play()
+			elseif descendant:IsA("Frame") then
+				TweenService:Create(descendant, fadeInfo, { BackgroundTransparency = 1 }):Play()
+			end
+		end
+
+		task.delay(NOTIFICATION_FADE_TIME, function()
+			if generation ~= levelUpNotificationGeneration or activeLevelUpBanner ~= banner then
+				return
+			end
+			activeLevelUpBanner = nil
+			banner:Destroy()
+		end)
+	end)
+end
+
 local function getUI()
 	local generalTemplates = playerGui:FindFirstChild("GeneralTemplates")
 	local temporal = playerGui:FindFirstChild("Temporal")
@@ -337,12 +572,18 @@ end
 
 task.spawn(function()
 	DataService:waitForData()
+	local previousLevel = (DataService:get({ "Level" }) or 1) :: number
 	updateProgress(false)
 	DataService:getChangedSignal({ "SpeedCurrency" }):Connect(function()
 		updateProgress(true)
 	end)
 	DataService:getChangedSignal({ "Level" }):Connect(function()
+		local newLevel = (DataService:get({ "Level" }) or previousLevel) :: number
 		updateProgress(true)
-		animateLevelUp()
+		if newLevel > previousLevel then
+			animateLevelUp()
+			showLevelUpNotification(previousLevel, newLevel)
+		end
+		previousLevel = newLevel
 	end)
 end)

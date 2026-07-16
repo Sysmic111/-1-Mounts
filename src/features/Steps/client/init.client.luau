@@ -27,6 +27,8 @@ local function colorEntry(entry: StepsEntry): ()
 		print("[Steps] colorEntry: dataReady=false, saltando step", entry.stepsIncrement)
 		return
 	end
+	-- El TouchPart pudo salir por streaming; saltar si ya no está cargado
+	if not entry.touchPart.Parent then return end
 	local equippedSteps = (DataService:get({ "StepsEquipped" }) or 1) :: number
 	local flatKey = "StepUnlocked_" .. tostring(entry.stepsIncrement)
 	local isUnlocked = DataService:get({ flatKey })
@@ -50,16 +52,19 @@ local function refreshColors(): ()
 	end
 end
 
-local function initButton(instance: Instance): ()
-	local model = instance :: Model
-	local inc   = model:GetAttribute("StepsIncresement") :: number?
-	local wins  = model:GetAttribute("WinsQuantity")     :: number?
-	local tp = model:WaitForChild("TouchPart", 10) :: BasePart?
-	print("[Steps] initButton:", model.Name, "| inc:", inc, "| wins:", wins, "| tp:", tp ~= nil)
-	if not inc or not wins or not tp then
-		print("[Steps] initButton: atributo faltante, abortando")
-		return
-	end
+-- TouchParts ya conectados (por parte). Con StreamingEnabled una parte puede
+-- salir y volver a entrar (nueva instancia), así que se reconecta cada vez.
+local connected: { [BasePart]: boolean } = {}
+
+-- Intenta conectar el botón. Es idempotente: si faltan atributos o el TouchPart
+-- aún no llegó (streaming), no hace nada y se reintenta al aparecer.
+local function tryConnect(model: Model): ()
+	local inc  = model:GetAttribute("StepsIncresement") :: number?
+	local wins = model:GetAttribute("WinsQuantity")     :: number?
+	local tp   = model:FindFirstChild("TouchPart")      :: BasePart?
+	if not inc or not wins or not tp then return end
+	if connected[tp] then return end
+	connected[tp] = true
 
 	-- Poblar labels del panel
 	local sgPart = model:FindFirstChild("Smooth Block Model") :: BasePart?
@@ -92,15 +97,30 @@ local function initButton(instance: Instance): ()
 	end)
 end
 
+-- Observa un botón: conecta ahora y reintenta cuando el streaming reponga el
+-- TouchPart o lleguen los atributos (en vez de rendirse tras un timeout).
+local function watchButton(instance: Instance): ()
+	local model = instance :: Model
+	tryConnect(model)
+	model.ChildAdded:Connect(function(child)
+		if child.Name == "TouchPart" then
+			tryConnect(model)
+		end
+	end)
+	model:GetAttributeChangedSignal("StepsIncresement"):Connect(function()
+		tryConnect(model)
+	end)
+	model:GetAttributeChangedSignal("WinsQuantity"):Connect(function()
+		tryConnect(model)
+	end)
+end
+
 -- Inicializar botones ya presentes y los que aparezcan (streaming)
 print("[Steps] Tagged StepButton count:", #CollectionService:GetTagged("StepButton"))
 for _, instance in CollectionService:GetTagged("StepButton") do
-	task.spawn(initButton, instance)
+	watchButton(instance)
 end
-CollectionService:GetInstanceAddedSignal("StepButton"):Connect(function(instance)
-	print("[Steps] GetInstanceAddedSignal:", instance.Name)
-	task.spawn(initButton, instance)
-end)
+CollectionService:GetInstanceAddedSignal("StepButton"):Connect(watchButton)
 
 -- Esperar data y colorear; re-colorear en cada cambio relevante
 task.spawn(function()

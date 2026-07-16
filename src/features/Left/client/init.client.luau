@@ -9,6 +9,7 @@ local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
 local RebirthConfig   = require(ReplicatedStorage.Shared.RebirthConfig)
 local DataService     = require(ReplicatedStorage.Packages.DataService).client
 local Packets         = require(ReplicatedStorage.Shared.Packets)
+local AlertsModule    = require(ReplicatedStorage.Packages.AlertsModule)
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -20,6 +21,7 @@ local menus = playerGui:WaitForChild("Menus")
 local btnEvolve  = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Evolve")  :: ImageButton
 local btnRebirth = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Rebirth") :: ImageButton
 local btnIndex   = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Index")   :: ImageButton
+local btnTeleports = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Teleports") :: ImageButton
 
 -- Menús
 local menuEvolve   = menus:WaitForChild("Evolve")       :: Frame
@@ -90,7 +92,11 @@ local function showAlert(title: string, description: string)
 
 	-- Ocultar BuySection (no aplica para alertas)
 	local buySection = notification:FindFirstChild("BuySection")
-	if buySection then buySection.Visible = false end
+	if buySection then
+		for _, child in buySection:GetChildren() do
+			if child:IsA("GuiObject") then child.Visible = false end
+		end
+	end
 
 	MenuAnimations.open(notification)
 end
@@ -100,6 +106,11 @@ closeNotif.MouseButton1Click:Connect(function()
 	if not openMenu then
 		MenuAnimations.blurOut()
 	end
+end)
+
+-- Teleports: aún no implementado → mostrar error "Coming Soon"
+btnTeleports.MouseButton1Click:Connect(function()
+	AlertsModule.ShowAlertGui("Error", "Coming Soon")
 end)
 
 -- ── Menú Evolve ──────────────────────────────────────────────────────────────

@@ -52,6 +52,9 @@
       },
       "Hats": {
         "$path": "src/features/Hats/server"
+      },
+      "Trails": {
+        "$path": "src/features/Trails/server"
       }
     },
     "StarterPlayer": {
@@ -94,6 +97,9 @@
         },
         "Hats": {
           "$path": "src/features/Hats/client"
+        },
+        "Trails": {
+          "$path": "src/features/Trails/client"
         }
       }
     }

@@ -45,6 +45,7 @@ local SpeedService = {
 	_playTimeService  = nil :: any,
 	_robuxService     = nil :: any,
 	_hatsService      = nil :: any,
+	_trailsService    = nil :: any,
 	_connections      = {} :: { [Player]: { RBXScriptConnection } },
 	_lastRequestTimes = {} :: { [Player]: number },
 }
@@ -69,6 +70,10 @@ end
 
 function SpeedService:setHatsService(hatsService: any): ()
 	self._hatsService = hatsService
+end
+
+function SpeedService:setTrailsService(trailsService: any): ()
+	self._trailsService = trailsService
 end
 
 function SpeedService:setPlayTimeService(playTimeService: any): ()
@@ -170,10 +175,15 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 		hatMultiplier = self._hatsService:GetMultiplier(player)
 	end
 
-	local total = mountMultiplier * rebirthMultiplier * playTimeMultiplier * hatMultiplier
+	local trailMultiplier = 1
+	if self._trailsService then
+		trailMultiplier = self._trailsService:GetMultiplier(player)
+	end
+
+	local total = mountMultiplier * rebirthMultiplier * playTimeMultiplier * hatMultiplier * trailMultiplier
 
 	player:SetAttribute("TotalMultiplier", total)
-	debugPrint(`TotalMultiplier de {player.Name}: x{total} (mount x{mountMultiplier} * rebirth x{rebirthMultiplier} * playtime x{playTimeMultiplier} * hat x{hatMultiplier})`)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (mount x{mountMultiplier} * rebirth x{rebirthMultiplier} * playtime x{playTimeMultiplier} * hat x{hatMultiplier} * trail x{trailMultiplier})`)
 end
 
 function SpeedService:updateTotalMultiplier(player: Player): ()

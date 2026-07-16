@@ -2,6 +2,9 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local HatsData = require(ReplicatedStorage.Shared.HatsData)
+local TrailsData = require(ReplicatedStorage.Shared.TrailsData)
+
 local MorphService = {}
 
 -- DataService inyectado (para leer el hat equipado en cada morph)
@@ -11,7 +14,7 @@ function MorphService.setDataService(ds: any): ()
 	dataService = ds
 end
 
-local HAT_BASE_SIZE = 9 -- tamaño estándar de referencia para escalar el hat
+local HAT_BASE_SIZE = 9 -- Y del HRP de la montura de referencia (mountScale = 1)
 
 -- Busca el attachment "Hat" del rig de la montura (variante Head o Neck.Head)
 local function findMountHatAttachment(hrp: Instance): Attachment?
@@ -76,8 +79,14 @@ local function attachHat(character: Model, hatName: string): ()
 	weld.Attachment1 = mountHatAtt
 	weld.Parent = primary
 
-	local scale = hrp.Size.Y / HAT_BASE_SIZE
-	hat:ScaleTo(scale)
+	-- Escala = tamaño de la montura × ajuste opcional por gorro (Scale en HatsData).
+	-- Cada gorro está modelado con proporciones distintas, así que el tamaño fino
+	-- se calibra por gorro con su campo Scale (default 1).
+	local mountScale = hrp.Size.Y / HAT_BASE_SIZE
+	local hatData = HatsData.getHatData(hatName)
+	local override = (hatData and hatData.Scale) or 1
+
+	hat:ScaleTo(mountScale * override)
 
 	hat.Parent = character
 end
@@ -90,11 +99,73 @@ local function getEquippedHat(player: Player): string
 	return ""
 end
 
+local TRAIL_NAME = "EquippedTrail" -- nombre del Trail y de sus attachments sobre la montura
+
+-- Quita el trail actual (si hay) y coloca el nuevo, horizontal (lado→lado) en la
+-- parte trasera de la montura. trailName == "" => solo quitar.
+local function attachTrail(character: Model, trailName: string): ()
+	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp then return end
+
+	-- Quitar trail y attachments anteriores
+	for _, child in hrp:GetChildren() do
+		if child.Name == TRAIL_NAME and (child:IsA("Trail") or child:IsA("Attachment")) then
+			child:Destroy()
+		end
+	end
+
+	if trailName == "" then return end
+
+	local trailData = TrailsData.getTrailData(trailName)
+	if not trailData then return end
+
+	-- Posición: parte trasera, extremos a cada lado (tuneable por atributos de la montura)
+	local back   = (character:GetAttribute("TrailBack")   or (hrp.Size.Z * 0.5)) :: number
+	local height = (character:GetAttribute("TrailHeight") or 0) :: number
+	local half   = ((character:GetAttribute("TrailWidth") or hrp.Size.X) :: number) / 2
+
+	local attL = Instance.new("Attachment")
+	attL.Name = TRAIL_NAME
+	attL.Position = Vector3.new(-half, height, back)
+	attL.Parent = hrp
+
+	local attR = Instance.new("Attachment")
+	attR.Name = TRAIL_NAME
+	attR.Position = Vector3.new(half, height, back)
+	attR.Parent = hrp
+
+	local trail = Instance.new("Trail")
+	trail.Name = TRAIL_NAME
+	trail.Attachment0 = attL
+	trail.Attachment1 = attR
+	trail.Color = ColorSequence.new(trailData.Color)
+	trail.Texture = trailData.Texture
+	trail.Lifetime = 0.6
+	trail.LightEmission = 1
+	trail.FaceCamera = false
+	trail.Parent = hrp
+end
+
+-- Lee el trail equipado del jugador (o "")
+local function getEquippedTrail(player: Player): string
+	if dataService and dataService:hasProfile(player) then
+		return (dataService:get(player, { "EquippedTrail" }) or "") :: string
+	end
+	return ""
+end
+
 -- Re-aplica el hat equipado sobre el character-montura actual (sin re-morphear)
 function MorphService.ApplyHat(player: Player): ()
 	local character = player.Character
 	if not character or not character:GetAttribute("IsMountCharacter") then return end
 	attachHat(character, getEquippedHat(player))
+end
+
+-- Re-aplica el trail equipado sobre el character-montura actual (sin re-morphear)
+function MorphService.ApplyTrail(player: Player): ()
+	local character = player.Character
+	if not character or not character:GetAttribute("IsMountCharacter") then return end
+	attachTrail(character, getEquippedTrail(player))
 end
 
 function MorphService.MorphPlayer(player: Player, mountName: string): ()
@@ -190,6 +261,10 @@ function MorphService.MorphPlayer(player: Player, mountName: string): ()
 	if existingOriginal then
 		oldCharacter:Destroy()
 	end
+
+	-- Equipar el gorro actual sobre la nueva montura (inicio, evolve, cambio de montura)
+	attachHat(newChar, getEquippedHat(player))
+	attachTrail(newChar, getEquippedTrail(player))
 
 	player.Character = newChar
 end

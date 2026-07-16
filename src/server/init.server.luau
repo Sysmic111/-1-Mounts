@@ -18,6 +18,7 @@ local RobuxService     = require(ServerScriptService.Robux.RobuxService)
 local StepsService     = require(ServerScriptService.Steps.StepsService)
 local PremiumMountsService = require(ServerScriptService.PremiumMounts.PremiumMountsService)
 local HatsService      = require(ServerScriptService.Hats.HatsService)
+local TrailsService    = require(ServerScriptService.Trails.TrailsService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 
 DataService:init({
@@ -42,6 +43,8 @@ DataService:init({
 		PendingPremiumWins = 0,
 		Hats             = {},
 		EquippedHat      = "",
+		Trails           = {},
+		EquippedTrail    = "",
 	},
 })
 
@@ -69,6 +72,10 @@ HatsService:init(DataService)
 HatsService:setSpeedService(SpeedService)
 HatsService:setMorphService(MorphService)
 SpeedService:setHatsService(HatsService)
+TrailsService:init(DataService)
+TrailsService:setSpeedService(SpeedService)
+TrailsService:setMorphService(MorphService)
+SpeedService:setTrailsService(TrailsService)
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

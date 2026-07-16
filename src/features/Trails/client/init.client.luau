@@ -4,26 +4,23 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
-local HatsData       = require(ReplicatedStorage.Shared.HatsData)
+local TrailsData     = require(ReplicatedStorage.Shared.TrailsData)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
-local Utils          = require(ReplicatedStorage.Packages.Utils)
 local DataService    = require(ReplicatedStorage.Packages.DataService).client
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local hatsFolder = ReplicatedStorage:WaitForChild("Hats")
-
 local left  = playerGui:WaitForChild("Left")
 local menus = playerGui:WaitForChild("Menus")
 
 -- Botón de apertura (menú izquierdo, Line2)
-local btnHats = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Hats") :: ImageButton
+local btnTrails = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Trails") :: ImageButton
 
--- Menú Hats
-local menuHats     = menus:WaitForChild("Hats")         :: Frame
-local closeHats    = menuHats:WaitForChild("Right"):WaitForChild("Close") :: ImageButton
-local scrolling    = menuHats:WaitForChild("ScrollingFrame")   :: ScrollingFrame
+-- Menú Trails
+local menuTrails   = menus:WaitForChild("Trails")        :: Frame
+local closeTrails  = menuTrails:WaitForChild("Right"):WaitForChild("Close") :: ImageButton
+local scrolling    = menuTrails:WaitForChild("ScrollingFrame")  :: ScrollingFrame
 local templates    = scrolling:WaitForChild("Templates")
 local cardTemplate = templates:WaitForChild("CardTemplateNumbered") :: ImageButton
 
@@ -66,7 +63,7 @@ closeNotif.MouseButton1Click:Connect(function()
 	MenuAnimations.close(notification)
 end)
 
--- ── Grid de hats ─────────────────────────────────────────────────────────────
+-- ── Grid de trails ───────────────────────────────────────────────────────────
 
 local function clearGrid()
 	for _, child in scrolling:GetChildren() do
@@ -80,26 +77,22 @@ local function clearGrid()
 	end
 end
 
-local function buildCard(hat: HatsData.HatData, owned: boolean, equipped: boolean, order: number)
+local function buildCard(trail: TrailsData.TrailData, owned: boolean, equipped: boolean, order: number)
 	local cardNumbered = cardTemplate:Clone()
 	local card = cardNumbered:WaitForChild("CardTemplate") :: ImageButton
 
 	local textName = card:FindFirstChild("TextName") :: TextLabel?
-	if textName then textName.Text = hat.Name end
+	if textName then textName.Text = trail.Name end
 
-	-- Usamos el ViewportFrame para el preview 3D → ocultamos Image1
-	local image1 = card:FindFirstChild("Image1") :: ImageLabel?
-	if image1 then image1.Visible = false end
-
-	-- Preview 3D en el ViewportFrame
+	-- Preview: la textura del trail tinteada por su color (sin viewport 3D)
 	local viewport = card:FindFirstChild("ViewportFrame") :: ViewportFrame?
-	if viewport then
-		local model = hatsFolder:FindFirstChild(hat.Name)
-		if model and model:IsA("Model") then
-			local clone = model:Clone()
-			clone.Parent = viewport
-			Utils.SetupViewport(viewport, clone)
-		end
+	if viewport then viewport.Visible = false end
+
+	local image1 = card:FindFirstChild("Image1") :: ImageLabel?
+	if image1 then
+		image1.Visible = true
+		image1.Image = trail.Texture
+		image1.ImageColor3 = trail.Color
 	end
 
 	-- Estado equipado
@@ -111,7 +104,7 @@ local function buildCard(hat: HatsData.HatData, owned: boolean, equipped: boolea
 	if unlock then
 		unlock.Visible = not owned
 		local quantity = unlock:FindFirstChild("Quantity") :: TextLabel?
-		if quantity then quantity.Text = abbreviate(hat.Price) end
+		if quantity then quantity.Text = abbreviate(trail.Price) end
 	end
 
 	cardNumbered.LayoutOrder = order
@@ -121,23 +114,23 @@ local function buildCard(hat: HatsData.HatData, owned: boolean, equipped: boolea
 	cardNumbered.MouseButton1Click:Connect(function()
 		if owned then
 			if not equipped then
-				Packets.EquipHat:Fire(hat.Name)
+				Packets.EquipTrail:Fire(trail.Name)
 			end
 		else
-			Packets.BuyHat:Fire(hat.Name)
+			Packets.BuyTrail:Fire(trail.Name)
 		end
 	end)
 end
 
--- Primera card: quitar el hat (multiplicador 1, siempre disponible)
-local function buildRemoveCard(equippedHat: string, order: number)
+-- Primera card: quitar el trail (multiplicador 1, siempre disponible)
+local function buildRemoveCard(equippedTrail: string, order: number)
 	local cardNumbered = cardTemplate:Clone()
 	local card = cardNumbered:WaitForChild("CardTemplate") :: ImageButton
 
 	local textName = card:FindFirstChild("TextName") :: TextLabel?
 	if textName then textName.Text = "Remove" end
 
-	-- Sin ícono ni preview 3D
+	-- Sin preview
 	local image1 = card:FindFirstChild("Image1") :: ImageLabel?
 	if image1 then image1.Visible = false end
 	local viewport = card:FindFirstChild("ViewportFrame") :: ViewportFrame?
@@ -147,17 +140,17 @@ local function buildRemoveCard(equippedHat: string, order: number)
 	local unlock = card:FindFirstChild("Unlock") :: Frame?
 	if unlock then unlock.Visible = false end
 
-	-- "Equipped" cuando no hay ningún hat puesto
+	-- "Equipped" cuando no hay ningún trail puesto
 	local equippedFrame = card:FindFirstChild("Equipped") :: Frame?
-	if equippedFrame then equippedFrame.Visible = (equippedHat == "") end
+	if equippedFrame then equippedFrame.Visible = (equippedTrail == "") end
 
 	cardNumbered.LayoutOrder = order
 	cardNumbered.Visible = true
 	cardNumbered.Parent = scrolling
 
 	cardNumbered.MouseButton1Click:Connect(function()
-		if equippedHat ~= "" then
-			Packets.EquipHat:Fire("None")
+		if equippedTrail ~= "" then
+			Packets.EquipTrail:Fire("None")
 		end
 	end)
 end
@@ -165,15 +158,15 @@ end
 local function populate()
 	clearGrid()
 
-	local ownedHats   = (DataService:get({ "Hats" }) or {}) :: { [string]: boolean }
-	local equippedHat = (DataService:get({ "EquippedHat" }) or "") :: string
+	local ownedTrails   = (DataService:get({ "Trails" }) or {}) :: { [string]: boolean }
+	local equippedTrail = (DataService:get({ "EquippedTrail" }) or "") :: string
 
-	buildRemoveCard(equippedHat, 1)
+	buildRemoveCard(equippedTrail, 1)
 
-	for i, hat in HatsData.Hats do
-		local owned    = ownedHats[hat.Name] == true
-		local equipped = (equippedHat == hat.Name)
-		buildCard(hat, owned, equipped, i + 1)
+	for i, trail in TrailsData.Trails do
+		local owned    = ownedTrails[trail.Name] == true
+		local equipped = (equippedTrail == trail.Name)
+		buildCard(trail, owned, equipped, i + 1)
 	end
 end
 
@@ -183,7 +176,7 @@ local function openMenu()
 	if isOpen then return end
 	isOpen = true
 	MenuAnimations.blurIn()
-	MenuAnimations.open(menuHats)
+	MenuAnimations.open(menuTrails)
 	task.spawn(function()
 		DataService:waitForData()
 		populate()
@@ -193,11 +186,11 @@ end
 local function closeMenu()
 	if not isOpen then return end
 	isOpen = false
-	MenuAnimations.close(menuHats)
+	MenuAnimations.close(menuTrails)
 	MenuAnimations.blurOut()
 end
 
-btnHats.MouseButton1Click:Connect(function()
+btnTrails.MouseButton1Click:Connect(function()
 	if isOpen then
 		closeMenu()
 	else
@@ -205,17 +198,17 @@ btnHats.MouseButton1Click:Connect(function()
 	end
 end)
 
-closeHats.MouseButton1Click:Connect(closeMenu)
+closeTrails.MouseButton1Click:Connect(closeMenu)
 
 -- ── Resultados y refresh ─────────────────────────────────────────────────────
 
-Packets.BuyHatResult.OnClientEvent:Connect(function(success: boolean, message: string)
+Packets.BuyTrailResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	if not success then
 		showAlert("Cannot Buy", message)
 	end
 end)
 
-Packets.EquipHatResult.OnClientEvent:Connect(function(success: boolean, message: string)
+Packets.EquipTrailResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	if not success then
 		showAlert("Cannot Equip", message)
 	end
@@ -227,6 +220,6 @@ task.spawn(function()
 	local function refreshIfOpen()
 		if isOpen then populate() end
 	end
-	DataService:getChangedSignal({ "Hats" }):Connect(refreshIfOpen)
-	DataService:getChangedSignal({ "EquippedHat" }):Connect(refreshIfOpen)
+	DataService:getChangedSignal({ "Trails" }):Connect(refreshIfOpen)
+	DataService:getChangedSignal({ "EquippedTrail" }):Connect(refreshIfOpen)
 end)
