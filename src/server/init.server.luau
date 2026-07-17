@@ -21,6 +21,7 @@ local HatsService      = require(ServerScriptService.Hats.HatsService)
 local TrailsService    = require(ServerScriptService.Trails.TrailsService)
 local DailyService     = require(ServerScriptService.Daily.DailyService)
 local EconomyService   = require(ServerScriptService.Economy.EconomyService)
+local StarterPackService = require(ServerScriptService.StarterPack.StarterPackService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 
 DataService:init({
@@ -49,6 +50,7 @@ DataService:init({
 		EquippedTrail    = "",
 		DailyClaimedDay    = 0,
 		DailyLastClaimDate = 0,
+		StarterPackBought  = false,
 	},
 })
 
@@ -76,6 +78,7 @@ RobuxService:init(DataService)
 SpeedService:setRobuxService(RobuxService)
 StepsService:init(DataService)
 PremiumMountsService:init(DataService, RobuxService)
+StarterPackService:init(DataService, RobuxService)
 MorphService.setDataService(DataService)
 HatsService:init(DataService)
 HatsService:setSpeedService(SpeedService)

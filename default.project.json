@@ -53,6 +53,9 @@
       "Stages": {
         "$path": "src/features/Stages/server"
       },
+      "StarterPack": {
+        "$path": "src/features/StarterPack/server"
+      },
       "Steps": {
         "$path": "src/features/Steps/server"
       },
@@ -100,6 +103,9 @@
         },
         "Stages": {
           "$path": "src/features/Stages/client"
+        },
+        "StarterPack": {
+          "$path": "src/features/StarterPack/client"
         },
         "Steps": {
           "$path": "src/features/Steps/client"
