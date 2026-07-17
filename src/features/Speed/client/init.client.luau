@@ -37,7 +37,7 @@ local function createTextLabel(parent: Instance, name: string, text: string, max
 	label.Name = name
 	label.BackgroundTransparency = 1
 	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Enum.Font.GothamBlack
+	label.FontFace = Font.fromName("FredokaOne")
 	label.Text = text
 	label.TextColor3 = color
 	label.TextScaled = true
@@ -73,8 +73,7 @@ local function createLevelUpBanner(previousLevel: number, newLevel: number): Can
 	local banner = Instance.new("CanvasGroup")
 	banner.Name = "LevelUpBanner"
 	banner.AnchorPoint = Vector2.new(0.5, 0)
-	banner.BackgroundColor3 = Color3.fromRGB(52, 72, 105)
-	banner.BackgroundTransparency = 0.15
+	banner.BackgroundTransparency = 1
 	banner.BorderSizePixel = 0
 	banner.ClipsDescendants = true
 	banner.Position = UDim2.new(0.5, 0, 0, 12)
@@ -92,6 +91,24 @@ local function createLevelUpBanner(previousLevel: number, newLevel: number): Can
 	corner.CornerRadius = UDim.new(0, 18)
 	corner.Parent = banner
 
+	-- El fondo va en su propio Frame, no en el CanvasGroup: un UIGradient sobre un
+	-- CanvasGroup se aplica al grupo ya compuesto (texto incluido) y teñía las
+	-- letras del mismo azul oscuro que el fondo, dejándolas ilegibles.
+	local background = Instance.new("Frame")
+	background.Name = "Background"
+	background.BackgroundColor3 = Color3.fromRGB(52, 72, 105)
+	background.BackgroundTransparency = 0.15
+	background.BorderSizePixel = 0
+	background.Size = UDim2.fromScale(1, 1)
+	background.ZIndex = 100
+	background.Parent = banner
+
+	local backgroundCorner = Instance.new("UICorner")
+	backgroundCorner.CornerRadius = UDim.new(0, 18)
+	backgroundCorner.Parent = background
+
+	-- El stroke sí va en el CanvasGroup: dentro lo recortaría ClipsDescendants, y
+	-- sobre el grupo solo dibuja el contorno de la silueta (no tiñe el relleno).
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(255, 203, 64)
 	stroke.Thickness = 3
@@ -105,7 +122,7 @@ local function createLevelUpBanner(previousLevel: number, newLevel: number): Can
 		ColorSequenceKeypoint.new(1, Color3.fromRGB(33, 91, 112)),
 	})
 	gradient.Rotation = 12
-	gradient.Parent = banner
+	gradient.Parent = background
 
 	local accent = Instance.new("Frame")
 	accent.Name = "Accent"

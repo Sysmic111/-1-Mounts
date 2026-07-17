@@ -19,6 +19,7 @@ local StepsService     = require(ServerScriptService.Steps.StepsService)
 local PremiumMountsService = require(ServerScriptService.PremiumMounts.PremiumMountsService)
 local HatsService      = require(ServerScriptService.Hats.HatsService)
 local TrailsService    = require(ServerScriptService.Trails.TrailsService)
+local DailyService     = require(ServerScriptService.Daily.DailyService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 
 DataService:init({
@@ -45,6 +46,8 @@ DataService:init({
 		EquippedHat      = "",
 		Trails           = {},
 		EquippedTrail    = "",
+		DailyClaimedDay    = 0,
+		DailyLastClaimDate = 0,
 	},
 })
 
@@ -76,6 +79,7 @@ TrailsService:init(DataService)
 TrailsService:setSpeedService(SpeedService)
 TrailsService:setMorphService(MorphService)
 SpeedService:setTrailsService(TrailsService)
+DailyService:init(DataService)
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

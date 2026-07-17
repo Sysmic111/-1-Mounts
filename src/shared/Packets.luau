@@ -37,6 +37,12 @@ return {
 	SetAgilityResult  = Packet("SetAgilityResult",   Packet.Boolean8, Packet.NumberU8),
 	ShowRevive        = Packet("ShowRevive"),
 	RequestRevive     = Packet("RequestRevive"),
+	-- Lo consume Packages/AlertsModule. Sus 5 argumentos cambian de tipo según el
+	-- AlertType (QuantityDivided es número o rareza, Legendary booleano o subtítulo),
+	-- así que van como Any.
+	Alert             = Packet("Alert", Packet.Any, Packet.Any, Packet.Any, Packet.Any, Packet.Any),
+	ClaimDaily        = Packet("ClaimDaily"),
+	ClaimDailyResult  = Packet("ClaimDailyResult",   Packet.Boolean8, Packet.NumberU8, Packet.String),
 	ActivateStep      = Packet("ActivateStep",  Packet.NumberU16),
 	StepActivated     = Packet("StepActivated", Packet.NumberU16),
 	WallHit           = Packet("WallHit"),

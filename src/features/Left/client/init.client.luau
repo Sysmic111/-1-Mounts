@@ -22,6 +22,7 @@ local btnEvolve  = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild(
 local btnRebirth = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Rebirth") :: ImageButton
 local btnIndex   = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Index")   :: ImageButton
 local btnTeleports = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Teleports") :: ImageButton
+local btnWorlds    = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Worlds")    :: ImageButton
 
 -- Menús
 local menuEvolve   = menus:WaitForChild("Evolve")       :: Frame
@@ -52,6 +53,11 @@ local rebirthProgress   = menuRebirth:WaitForChild("Progress")                  
 local rebirthFill       = rebirthProgress:WaitForChild("Fill")                                     :: Frame
 local rebirthCoinsTitle = rebirthProgress:WaitForChild("Coins"):WaitForChild("Title")              :: TextLabel
 local rebirthButton     = menuRebirth:WaitForChild("Rebirth")                                      :: ImageButton
+
+-- Barra de progreso del botón Rebirth del menú izquierdo (visible sin abrir el menú)
+local rebirthBtnProgress = btnRebirth:WaitForChild("Button"):WaitForChild("Progress")              :: Frame
+local rebirthBtnFill     = rebirthBtnProgress:WaitForChild("Fill")                                 :: Frame
+local rebirthBtnTitle    = rebirthBtnProgress:WaitForChild("Title")                                :: TextLabel
 
 -- Elementos del menú Evolve
 local actualQuantity = menuEvolve:WaitForChild("Actual"):WaitForChild("Quantity")         :: TextLabel
@@ -108,8 +114,12 @@ closeNotif.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Teleports: aún no implementado → mostrar error "Coming Soon"
+-- Teleports y Worlds: aún no implementados → mostrar error "Coming Soon"
 btnTeleports.MouseButton1Click:Connect(function()
+	AlertsModule.ShowAlertGui("Error", "Coming Soon")
+end)
+
+btnWorlds.MouseButton1Click:Connect(function()
 	AlertsModule.ShowAlertGui("Error", "Coming Soon")
 end)
 
@@ -205,6 +215,32 @@ local function populateRebirthMenu()
 		end
 	end)
 end
+
+-- El único requisito para rebirthear es el nivel (ver RebirthService:_handleRebirth),
+-- así que el progreso es Level / LevelRequired del siguiente rebirth.
+local function refreshRebirthButtonProgress()
+	local rebirthCount = (DataService:get({ "Rebirth" }) or 0) :: number
+	local playerLevel  = (DataService:get({ "Level" }) or 1)   :: number
+	local nextData     = RebirthConfig.getNextData(rebirthCount)
+
+	if not nextData then
+		TweenService:Create(rebirthBtnFill, FILL_TWEEN, { Size = UDim2.new(1, 0, 1, 0) }):Play()
+		rebirthBtnTitle.Text = "MAX"
+		return
+	end
+
+	local ratio = math.clamp(playerLevel / nextData.LevelRequired, 0, 1)
+	TweenService:Create(rebirthBtnFill, FILL_TWEEN, { Size = UDim2.new(ratio, 0, 1, 0) }):Play()
+	-- floor y no round: mostrar 100% sin poder rebirthear todavía sería mentir.
+	rebirthBtnTitle.Text = string.format("%d%%", math.floor(ratio * 100))
+end
+
+task.spawn(function()
+	DataService:waitForData()
+	refreshRebirthButtonProgress()
+	DataService:getChangedSignal({ "Level" }):Connect(refreshRebirthButtonProgress)
+	DataService:getChangedSignal({ "Rebirth" }):Connect(refreshRebirthButtonProgress)
+end)
 
 local rebirthPending = false
 rebirthButton.MouseButton1Click:Connect(function()

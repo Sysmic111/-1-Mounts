@@ -17,44 +17,47 @@
       "ServerPackages": {
         "$path": "ServerPackages"
       },
-      "Environment": {
-        "$path": "src/features/Environment/server"
-      },
-      "Mounts": {
-        "$path": "src/features/Mounts/server"
-      },
-      "Speed": {
-        "$path": "src/features/Speed/server"
-      },
-      "Wins": {
-        "$path": "src/features/Wins/server"
-      },
-      "Rebirth": {
-        "$path": "src/features/Rebirth/server"
-      },
-      "PlayTime": {
-        "$path": "src/features/PlayTime/server"
-      },
       "Agility": {
         "$path": "src/features/Agility/server"
       },
-      "Stages": {
-        "$path": "src/features/Stages/server"
+      "Daily": {
+        "$path": "src/features/Daily/server"
       },
-      "Robux": {
-        "$path": "src/features/Robux/server"
-      },
-      "Steps": {
-        "$path": "src/features/Steps/server"
-      },
-      "PremiumMounts": {
-        "$path": "src/features/PremiumMounts/server"
+      "Environment": {
+        "$path": "src/features/Environment/server"
       },
       "Hats": {
         "$path": "src/features/Hats/server"
       },
+      "Mounts": {
+        "$path": "src/features/Mounts/server"
+      },
+      "PlayTime": {
+        "$path": "src/features/PlayTime/server"
+      },
+      "PremiumMounts": {
+        "$path": "src/features/PremiumMounts/server"
+      },
+      "Rebirth": {
+        "$path": "src/features/Rebirth/server"
+      },
+      "Robux": {
+        "$path": "src/features/Robux/server"
+      },
+      "Speed": {
+        "$path": "src/features/Speed/server"
+      },
+      "Stages": {
+        "$path": "src/features/Stages/server"
+      },
+      "Steps": {
+        "$path": "src/features/Steps/server"
+      },
       "Trails": {
         "$path": "src/features/Trails/server"
+      },
+      "Wins": {
+        "$path": "src/features/Wins/server"
       }
     },
     "StarterPlayer": {
@@ -62,44 +65,47 @@
         "Client": {
           "$path": "src/client"
         },
-        "Environment": {
-          "$path": "src/features/Environment/client"
-        },
-        "Mounts": {
-          "$path": "src/features/Mounts/client"
-        },
-        "Speed": {
-          "$path": "src/features/Speed/client"
-        },
-        "Wins": {
-          "$path": "src/features/Wins/client"
-        },
-        "Left": {
-          "$path": "src/features/Left/client"
-        },
-        "PlayTime": {
-          "$path": "src/features/PlayTime/client"
-        },
         "Agility": {
           "$path": "src/features/Agility/client"
         },
-        "Stages": {
-          "$path": "src/features/Stages/client"
+        "Daily": {
+          "$path": "src/features/Daily/client"
         },
-        "Robux": {
-          "$path": "src/features/Robux/client"
-        },
-        "Steps": {
-          "$path": "src/features/Steps/client"
-        },
-        "PremiumMounts": {
-          "$path": "src/features/PremiumMounts/client"
+        "Environment": {
+          "$path": "src/features/Environment/client"
         },
         "Hats": {
           "$path": "src/features/Hats/client"
         },
+        "Left": {
+          "$path": "src/features/Left/client"
+        },
+        "Mounts": {
+          "$path": "src/features/Mounts/client"
+        },
+        "PlayTime": {
+          "$path": "src/features/PlayTime/client"
+        },
+        "PremiumMounts": {
+          "$path": "src/features/PremiumMounts/client"
+        },
+        "Robux": {
+          "$path": "src/features/Robux/client"
+        },
+        "Speed": {
+          "$path": "src/features/Speed/client"
+        },
+        "Stages": {
+          "$path": "src/features/Stages/client"
+        },
+        "Steps": {
+          "$path": "src/features/Steps/client"
+        },
         "Trails": {
           "$path": "src/features/Trails/client"
+        },
+        "Wins": {
+          "$path": "src/features/Wins/client"
         }
       }
     }

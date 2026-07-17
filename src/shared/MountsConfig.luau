@@ -48,9 +48,14 @@ local MountsConfig = {
 		{ Name = "Nyxion",    Multiplier = 90.00, Image = "rbxassetid://96015267241327",  EvolveRequirements = { Level = 60000, Wins = 17500 } },
 	} :: { MountData },
 
+	-- Secret Mounts del Index. Sin ProductId no se pueden comprar: las tres de
+	-- abajo solo se consiguen en el Daily Login (días 7, 14 y 21).
 	Premium = {
 		{ Name = "Vespofuzz",       Multiplier = 100, Image = "rbxassetid://124781012483071", EvolveRequirements = nil, ProductId = 3606128170 },
 		{ Name = "Phantom Chopper", Multiplier = 150, Image = "rbxassetid://119825390796383", EvolveRequirements = nil, ProductId = 3606128200 },
+		{ Name = "Velune",          Multiplier = 25,  Image = "rbxassetid://136869744377145", EvolveRequirements = nil },
+		{ Name = "Droth",           Multiplier = 70,  Image = "rbxassetid://138492432017701", EvolveRequirements = nil },
+		{ Name = "Pyrax",           Multiplier = 130, Image = "rbxassetid://104693225494550", EvolveRequirements = nil },
 	} :: { MountData },
 
 }
