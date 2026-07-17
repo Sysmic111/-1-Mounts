@@ -5,30 +5,25 @@ export type RebirthData = {
 	WinsMultiplier: number,
 }
 
--- Índice = número de rebirth a realizar (1-20)
+-- Índice = número de rebirth a realizar (1-8)
 -- LevelRequired: nivel mínimo necesario para hacer ese rebirth
--- WinsMultiplier: multiplicador de wins activo después de completarlo
+-- WinsMultiplier: multiplicador activo después de completarlo
+--
+-- Los 8 rebirths caben dentro del rango 1..130, que es el recorrido del juego
+-- (nivel 130 = se pasa el stage 14). El ciclo final va del rebirth 8 al 130.
+--
+-- OJO: este multiplicador se aplica en DOS sitios — a los Wins ganados en
+-- WinsService:_creditWins y al Speed dentro del TotalMultiplier de
+-- SpeedService:_updateTotalMultiplier. Por eso el techo es x26 y no x248.
 local RebirthConfig: { RebirthData } = {
-	{ LevelRequired = 50,     WinsMultiplier = 1.5   },
-	{ LevelRequired = 100,    WinsMultiplier = 2.0   },
-	{ LevelRequired = 175,    WinsMultiplier = 2.75  },
-	{ LevelRequired = 280,    WinsMultiplier = 3.5   },
-	{ LevelRequired = 430,    WinsMultiplier = 4.5   },
-	{ LevelRequired = 650,    WinsMultiplier = 6.0   },
-	{ LevelRequired = 975,    WinsMultiplier = 8.0   },
-	{ LevelRequired = 1450,   WinsMultiplier = 10.5  },
-	{ LevelRequired = 2150,   WinsMultiplier = 14.0  },
-	{ LevelRequired = 3200,   WinsMultiplier = 18.5  },
-	{ LevelRequired = 4750,   WinsMultiplier = 24.0  },
-	{ LevelRequired = 7000,   WinsMultiplier = 31.0  },
-	{ LevelRequired = 10300,  WinsMultiplier = 40.0  },
-	{ LevelRequired = 15200,  WinsMultiplier = 52.0  },
-	{ LevelRequired = 22500,  WinsMultiplier = 67.0  },
-	{ LevelRequired = 33000,  WinsMultiplier = 87.0  },
-	{ LevelRequired = 49000,  WinsMultiplier = 113.0 },
-	{ LevelRequired = 72000,  WinsMultiplier = 147.0 },
-	{ LevelRequired = 106000, WinsMultiplier = 191.0 },
-	{ LevelRequired = 156000, WinsMultiplier = 248.0 },
+	{ LevelRequired = 40,  WinsMultiplier = 2.0  },
+	{ LevelRequired = 55,  WinsMultiplier = 3.5  },
+	{ LevelRequired = 68,  WinsMultiplier = 5.5  },
+	{ LevelRequired = 80,  WinsMultiplier = 8.0  },
+	{ LevelRequired = 92,  WinsMultiplier = 11.0 },
+	{ LevelRequired = 103, WinsMultiplier = 15.0 },
+	{ LevelRequired = 114, WinsMultiplier = 20.0 },
+	{ LevelRequired = 125, WinsMultiplier = 26.0 },
 }
 
 function RebirthConfig.getWinsMultiplier(rebirthCount: number): number

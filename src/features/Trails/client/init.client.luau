@@ -4,6 +4,7 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
 local TrailsData     = require(ReplicatedStorage.Shared.TrailsData)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
 local DataService    = require(ReplicatedStorage.Packages.DataService).client
@@ -28,7 +29,6 @@ local cardTemplate = templates:WaitForChild("CardTemplateNumbered") :: ImageButt
 local notification = menus:WaitForChild("Notification") :: Frame
 local closeNotif   = notification:WaitForChild("Close")  :: ImageButton
 
-local isOpen = false
 
 -- ── Utilidades ───────────────────────────────────────────────────────────────
 
@@ -172,33 +172,20 @@ end
 
 -- ── Open / Close ─────────────────────────────────────────────────────────────
 
-local function openMenu()
-	if isOpen then return end
-	isOpen = true
-	MenuAnimations.blurIn()
-	MenuAnimations.open(menuTrails)
-	task.spawn(function()
-		DataService:waitForData()
-		populate()
-	end)
-end
-
-local function closeMenu()
-	if not isOpen then return end
-	isOpen = false
-	MenuAnimations.close(menuTrails)
-	MenuAnimations.blurOut()
-end
-
 btnTrails.MouseButton1Click:Connect(function()
-	if isOpen then
-		closeMenu()
-	else
-		openMenu()
-	end
+	MenuManager.toggle(menuTrails, {
+		onOpen = function()
+			task.spawn(function()
+				DataService:waitForData()
+				populate()
+			end)
+		end,
+	})
 end)
 
-closeTrails.MouseButton1Click:Connect(closeMenu)
+closeTrails.MouseButton1Click:Connect(function()
+	MenuManager.close(menuTrails)
+end)
 
 -- ── Resultados y refresh ─────────────────────────────────────────────────────
 
@@ -218,7 +205,7 @@ end)
 task.spawn(function()
 	DataService:waitForData()
 	local function refreshIfOpen()
-		if isOpen then populate() end
+		if MenuManager.isOpen(menuTrails) then populate() end
 	end
 	DataService:getChangedSignal({ "Trails" }):Connect(refreshIfOpen)
 	DataService:getChangedSignal({ "EquippedTrail" }):Connect(refreshIfOpen)

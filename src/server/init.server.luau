@@ -20,6 +20,7 @@ local PremiumMountsService = require(ServerScriptService.PremiumMounts.PremiumMo
 local HatsService      = require(ServerScriptService.Hats.HatsService)
 local TrailsService    = require(ServerScriptService.Trails.TrailsService)
 local DailyService     = require(ServerScriptService.Daily.DailyService)
+local EconomyService   = require(ServerScriptService.Economy.EconomyService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 
 DataService:init({
@@ -50,6 +51,11 @@ DataService:init({
 		DailyLastClaimDate = 0,
 	},
 })
+
+-- PRIMERO de todo: sembrar los valores económicos en los atributos de Workspace.
+-- WinsService y StepsService los leen una única vez en su init y los cachean, así
+-- que esto tiene que ir antes que ellos o se quedarían con los valores viejos.
+EconomyService:seedWorkspace()
 
 MountsService:init(DataService)
 SpeedService:init(DataService)

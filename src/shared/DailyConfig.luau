@@ -29,29 +29,34 @@ DailyConfig.SpeedIcon = "rbxassetid://121327750241374"
 -- Último día del ciclo. Se puede reclamar una vez por día para siempre.
 DailyConfig.RepeatDay = 22
 
+-- Calibrado contra la curva de SpeedConfig (req(130) = 1.87e12) y contra los
+-- sinks reales de Wins. Los premios se apoyan sobre todo en Wins: son la moneda
+-- permanente (sobreviven al rebirth) y no distorsionan la curva de niveles, a
+-- diferencia del Speed, que según el nivel en que caiga puede valer un nivel o
+-- doscientos.
 local Days: { [number]: DayReward } = {
-	[1]  = { Kind = "Wins",  Amount = 1 },
-	[2]  = { Kind = "Speed", Amount = 1_000_000 },
-	[3]  = { Kind = "Wins",  Amount = 25_000 },
-	[4]  = { Kind = "Speed", Amount = 100_000_000 },
-	[5]  = { Kind = "Wins",  Amount = 100_000 },
-	[6]  = { Kind = "Speed", Amount = 1_000_000_000 },
+	[1]  = { Kind = "Wins",  Amount = 10 },
+	[2]  = { Kind = "Speed", Amount = 2_000 },
+	[3]  = { Kind = "Wins",  Amount = 500 },
+	[4]  = { Kind = "Speed", Amount = 60_000 },
+	[5]  = { Kind = "Wins",  Amount = 3_000 },
+	[6]  = { Kind = "Speed", Amount = 500_000 },
 	[7]  = { Kind = "Mount", MountName = "Velune" },
-	[8]  = { Kind = "Wins",  Amount = 500_000 },
-	[9]  = { Kind = "Speed", Amount = 10_000_000_000 },
-	[10] = { Kind = "Wins",  Amount = 2_000_000 },
-	[11] = { Kind = "Speed", Amount = 100_000_000_000 },
-	[12] = { Kind = "Wins",  Amount = 10_000_000 },
-	[13] = { Kind = "Speed", Amount = 1_000_000_000_000 },
+	[8]  = { Kind = "Wins",  Amount = 20_000 },
+	[9]  = { Kind = "Speed", Amount = 5_000_000 },
+	[10] = { Kind = "Wins",  Amount = 60_000 },
+	[11] = { Kind = "Speed", Amount = 40_000_000 },
+	[12] = { Kind = "Wins",  Amount = 150_000 },
+	[13] = { Kind = "Speed", Amount = 300_000_000 },
 	[14] = { Kind = "Mount", MountName = "Droth" },
-	[15] = { Kind = "Wins",  Amount = 50_000_000 },
-	[16] = { Kind = "Speed", Amount = 10_000_000_000_000 },
-	[17] = { Kind = "Wins",  Amount = 250_000_000 },
-	[18] = { Kind = "Speed", Amount = 100_000_000_000_000 },
-	[19] = { Kind = "Wins",  Amount = 1_000_000_000 },
-	[20] = { Kind = "Speed", Amount = 1_000_000_000_000_000 },
+	[15] = { Kind = "Wins",  Amount = 400_000 },
+	[16] = { Kind = "Speed", Amount = 2_000_000_000 },
+	[17] = { Kind = "Wins",  Amount = 800_000 },
+	[18] = { Kind = "Speed", Amount = 15_000_000_000 },
+	[19] = { Kind = "Wins",  Amount = 1_500_000 },
+	[20] = { Kind = "Speed", Amount = 100_000_000_000 },
 	[21] = { Kind = "Mount", MountName = "Pyrax" },
-	[22] = { Kind = "Wins",  Amount = 5_000_000_000 },
+	[22] = { Kind = "Wins",  Amount = 250_000 },
 }
 
 DailyConfig.Days = Days

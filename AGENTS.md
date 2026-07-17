@@ -32,10 +32,19 @@
 
 ## TotalMultiplier
 - Atributo en el Player (replicado al cliente automáticamente)
-- = `mountMultiplier × rebirthWinsMultiplier`
-- Se recalcula en: carga de personaje, evolve exitoso, rebirth exitoso, equip manual
+- = `mountMultiplier × rebirthWinsMultiplier × playTimeMultiplier × hatMultiplier × trailMultiplier`
+- Se recalcula en: carga de personaje, evolve exitoso, rebirth exitoso, equip de mount/hat/trail, tiers de playtime
 - El cliente lo lee con `player:GetAttribute("TotalMultiplier")`
-- Speed ganado por paso = `math.ceil(TotalMultiplier)`
+- Speed ganado por paquete = `math.ceil(TotalMultiplier × EquippedSteps × treadmillMultiplier)`
+- Los steps y el treadmill NO están dentro de TotalMultiplier: se multiplican aparte en `SpeedService`
+
+## Economía / balance
+- El recorrido del juego es el rango de niveles 1..130 (nivel 130 = se pasa el stage 14), con 8 rebirths
+- `SpeedConfig.RequiredSpeedGrowth` es la palanca de duración total: 1.215 → ~6.7h, 1.225 → ~8.9h, 1.235 → ~11.8h
+- Los `WinsQuantity` de stages y steps buttons son atributos de Workspace: NO editarlos a mano en Studio.
+  Se siembran desde `EconomyConfig.luau` vía `EconomyService:seedWorkspace()`
+- `EconomyService:seedWorkspace()` DEBE correr antes de `WinsService:init` y `StepsService:init` — ambos
+  leen esos atributos una sola vez y los cachean
 
 ## Menú Index
 - Las imágenes de mounts son placeholders en MountsConfig — asignarles IDs reales
@@ -45,6 +54,23 @@
 - `src/shared/MenuAnimations.luau`: `open(frame)`, `close(frame, cb?)`, `blurIn()`, `blurOut()`
 - Size 90%→100% Back.Out 0.25s al abrir; 100%→90% Quad.In 0.2s al cerrar
 - BlurEffect "DialogueBlur" en Lighting, Size 0↔30 — NO usar TransparencyFade
+
+## Menús excluyentes (MenuManager)
+- `src/shared/MenuManager.luau` es el dueño ÚNICO del menú abierto: `toggle(frame, opts?)`,
+  `open`, `close`, `closeAll`, `isOpen(frame)`, `isAnyOpen()`, `refreshBlur()`
+- Todo menú central NUEVO debe abrirse con MenuManager. NO declarar un `isOpen` local ni llamar
+  a `MenuAnimations.blurIn/blurOut` a mano: así es como los menús acababan apilándose
+- `opts.onOpen` para poblar el menú; `opts.onClose` para limpiar tweens/conexiones (lo llama
+  también cuando el cierre lo provoca que el jugador abra otro menú — ver el Revive de Stages)
+- Funciona porque los ModuleScripts se cachean por VM: todos los LocalScripts comparten la tabla
+- Excepciones deliberadas: `Notification` (alerta que va por encima del menú; al cerrarla llamar
+  a `MenuManager.refreshBlur()`) y el tooltip de PlayTime (panel lateral sin blur)
+
+## Indicador "!" (NotifyBadge)
+- `src/shared/NotifyBadge.luau`: `get(button)` / `setVisible(button, visible)` — badge rojo por código
+- Lo usan los botones Daily (claim disponible), Evolve y Rebirth (acción disponible)
+- Las condiciones del badge en el cliente son ESPEJO de las del servidor
+  (`MountsService:_handleEvolve`, `RebirthService:_handleRebirth`) — si cambian allí, cambiarlas aquí
 
 ## CollectionService tags en Workspace
 - `"Treadmill"` → modelos de cinta; detección por posición (no Touched) en Heartbeat

@@ -4,6 +4,7 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
 local HatsData       = require(ReplicatedStorage.Shared.HatsData)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
 local Utils          = require(ReplicatedStorage.Packages.Utils)
@@ -31,7 +32,6 @@ local cardTemplate = templates:WaitForChild("CardTemplateNumbered") :: ImageButt
 local notification = menus:WaitForChild("Notification") :: Frame
 local closeNotif   = notification:WaitForChild("Close")  :: ImageButton
 
-local isOpen = false
 
 -- ── Utilidades ───────────────────────────────────────────────────────────────
 
@@ -179,33 +179,20 @@ end
 
 -- ── Open / Close ─────────────────────────────────────────────────────────────
 
-local function openMenu()
-	if isOpen then return end
-	isOpen = true
-	MenuAnimations.blurIn()
-	MenuAnimations.open(menuHats)
-	task.spawn(function()
-		DataService:waitForData()
-		populate()
-	end)
-end
-
-local function closeMenu()
-	if not isOpen then return end
-	isOpen = false
-	MenuAnimations.close(menuHats)
-	MenuAnimations.blurOut()
-end
-
 btnHats.MouseButton1Click:Connect(function()
-	if isOpen then
-		closeMenu()
-	else
-		openMenu()
-	end
+	MenuManager.toggle(menuHats, {
+		onOpen = function()
+			task.spawn(function()
+				DataService:waitForData()
+				populate()
+			end)
+		end,
+	})
 end)
 
-closeHats.MouseButton1Click:Connect(closeMenu)
+closeHats.MouseButton1Click:Connect(function()
+	MenuManager.close(menuHats)
+end)
 
 -- ── Resultados y refresh ─────────────────────────────────────────────────────
 
@@ -225,7 +212,7 @@ end)
 task.spawn(function()
 	DataService:waitForData()
 	local function refreshIfOpen()
-		if isOpen then populate() end
+		if MenuManager.isOpen(menuHats) then populate() end
 	end
 	DataService:getChangedSignal({ "Hats" }):Connect(refreshIfOpen)
 	DataService:getChangedSignal({ "EquippedHat" }):Connect(refreshIfOpen)

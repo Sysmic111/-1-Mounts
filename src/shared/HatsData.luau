@@ -17,13 +17,13 @@ local HatsData = {
 
 	-- Orden = orden de aparición en el menú (LayoutOrder)
 	Hats = {
-		{ Name = "Red Hat",       Multiplier = 1.10, Price = 250,    Image = "rbxassetid://0" , Scale = 4},
-		{ Name = "Mushroom Hat",  Multiplier = 1.25, Price = 1000,   Image = "rbxassetid://0" , Scale = 4},
-		{ Name = "Chef",          Multiplier = 1.45, Price = 4000,   Image = "rbxassetid://0" , Scale = 1.3},
-		{ Name = "Winter Beanie", Multiplier = 1.70, Price = 15000,  Image = "rbxassetid://0" },
-		{ Name = "Floppy Sun Hat",Multiplier = 2.00, Price = 50000,  Image = "rbxassetid://0" },
-		{ Name = "Art",           Multiplier = 2.50, Price = 150000, Image = "rbxassetid://0" },
-		{ Name = "Dev",           Multiplier = 5.00, Price = 500000, Image = "rbxassetid://0" },
+		{ Name = "Red Hat",       Multiplier = 1.10, Price = 200,    Image = "rbxassetid://0" , Scale = 4},
+		{ Name = "Mushroom Hat",  Multiplier = 1.25, Price = 800,    Image = "rbxassetid://0" , Scale = 4},
+		{ Name = "Chef",          Multiplier = 1.45, Price = 3000,   Image = "rbxassetid://0" , Scale = 1.3},
+		{ Name = "Winter Beanie", Multiplier = 1.70, Price = 10000,  Image = "rbxassetid://0" },
+		{ Name = "Floppy Sun Hat",Multiplier = 2.00, Price = 32000,  Image = "rbxassetid://0" },
+		{ Name = "Art",           Multiplier = 2.50, Price = 100000, Image = "rbxassetid://0" },
+		{ Name = "Dev",           Multiplier = 5.00, Price = 320000, Image = "rbxassetid://0" },
 	} :: { HatData },
 
 }

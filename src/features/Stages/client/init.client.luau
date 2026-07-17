@@ -4,8 +4,8 @@ local Players           = game:GetService("Players")
 local TweenService      = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Packets        = require(ReplicatedStorage.Shared.Packets)
-local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local Packets     = require(ReplicatedStorage.Shared.Packets)
+local MenuManager = require(ReplicatedStorage.Shared.MenuManager)
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -24,9 +24,10 @@ local activeTween: Tween?               = nil
 local reviveConn:  RBXScriptConnection? = nil
 local closeConn:   RBXScriptConnection? = nil
 
-local function closeRevive()
-	if not reviveFrame.Visible then return end
-
+-- Corta el temporizador y suelta las conexiones de los botones. MenuManager la
+-- llama al cerrar el Revive venga de donde venga el cierre — incluido que el
+-- jugador abra otro menú — para que el timer no siga corriendo de fondo.
+local function cleanup()
 	if activeTween then
 		activeTween:Cancel()
 		activeTween = nil
@@ -39,29 +40,18 @@ local function closeRevive()
 		closeConn:Disconnect()
 		closeConn = nil
 	end
+end
 
-	MenuAnimations.close(reviveFrame)
-	MenuAnimations.blurOut()
+local function closeRevive()
+	MenuManager.close(reviveFrame)
 end
 
 local function openRevive()
-	if activeTween then
-		activeTween:Cancel()
-		activeTween = nil
-	end
-	if reviveConn then
-		reviveConn:Disconnect()
-		reviveConn = nil
-	end
-	if closeConn then
-		closeConn:Disconnect()
-		closeConn = nil
-	end
+	cleanup()
 
 	fill.Size = FULL_SIZE
 
-	MenuAnimations.blurIn()
-	MenuAnimations.open(reviveFrame)
+	MenuManager.open(reviveFrame, { onClose = cleanup })
 
 	local tween = TweenService:Create(fill, TIMER_INFO, { Size = EMPTY_SIZE })
 	activeTween = tween

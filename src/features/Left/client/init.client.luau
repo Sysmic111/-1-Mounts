@@ -5,6 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")
 
 local MenuAnimations  = require(ReplicatedStorage.Shared.MenuAnimations)
+local MenuManager     = require(ReplicatedStorage.Shared.MenuManager)
+local NotifyBadge     = require(ReplicatedStorage.Shared.NotifyBadge)
 local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
 local RebirthConfig   = require(ReplicatedStorage.Shared.RebirthConfig)
 local DataService     = require(ReplicatedStorage.Packages.DataService).client
@@ -76,8 +78,6 @@ local rebirthsQtyLabel = left:WaitForChild("Main"):WaitForChild("Line1")
 
 local FILL_TWEEN = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local openMenu: Frame? = nil
-
 -- Sincronizar Rebirths display con leaderstats (replicado automáticamente por Roblox)
 task.spawn(function()
 	local leaderstats  = player:WaitForChild("leaderstats")
@@ -107,11 +107,11 @@ local function showAlert(title: string, description: string)
 	MenuAnimations.open(notification)
 end
 
+-- Notification NO lo gestiona MenuManager: es una alerta que va por encima del
+-- menú abierto. Al cerrarla, el blur solo se quita si no queda menú detrás.
 closeNotif.MouseButton1Click:Connect(function()
 	MenuAnimations.close(notification)
-	if not openMenu then
-		MenuAnimations.blurOut()
-	end
+	MenuManager.refreshBlur()
 end)
 
 -- Teleports y Worlds: aún no implementados → mostrar error "Coming Soon"
@@ -182,9 +182,7 @@ end)
 Packets.EvolveMountResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	evolvePending = false
 	if success then
-		MenuAnimations.close(menuEvolve)
-		MenuAnimations.blurOut()
-		openMenu = nil
+		MenuManager.close(menuEvolve)
 	else
 		showAlert("Cannot Evolve", message)
 	end
@@ -242,6 +240,58 @@ task.spawn(function()
 	DataService:getChangedSignal({ "Rebirth" }):Connect(refreshRebirthButtonProgress)
 end)
 
+-- ── Indicadores "!" de Evolve y Rebirth ──────────────────────────────────────
+
+-- Condiciones espejo de las del servidor. Si cambian allí, hay que cambiarlas aquí:
+-- un badge que promete un evolve que el servidor luego rechaza es peor que no tenerlo.
+
+-- MountsService:_handleEvolve: la montura equipada debe estar en World1, tener
+-- siguiente, y cumplir Level Y Wins.
+local function canEvolve(): boolean
+	local equippedName = DataService:get({ "EquippedMount" }) :: string?
+	if not equippedName then return false end
+
+	local currentIndex: number? = nil
+	for i, mount in MountsConfig.World1 do
+		if mount.Name == equippedName then
+			currentIndex = i
+			break
+		end
+	end
+	if not currentIndex then return false end
+
+	local nextMount = MountsConfig.World1[currentIndex + 1]
+	local reqs = nextMount and nextMount.EvolveRequirements
+	if not reqs then return false end
+
+	local playerLevel = (DataService:get({ "Level" }) or 1)   :: number
+	local playerWins  = (DataService:get({ "WinCurrency" }) or 0) :: number
+	return playerLevel >= reqs.Level and playerWins >= reqs.Wins
+end
+
+-- RebirthService:_handleRebirth: solo pide nivel.
+local function canRebirth(): boolean
+	local rebirthCount = (DataService:get({ "Rebirth" }) or 0) :: number
+	local nextData     = RebirthConfig.getNextData(rebirthCount)
+	if not nextData then return false end
+
+	local playerLevel = (DataService:get({ "Level" }) or 1) :: number
+	return playerLevel >= nextData.LevelRequired
+end
+
+local function refreshActionBadges()
+	NotifyBadge.setVisible(btnEvolve, canEvolve())
+	NotifyBadge.setVisible(btnRebirth, canRebirth())
+end
+
+task.spawn(function()
+	DataService:waitForData()
+	refreshActionBadges()
+	for _, key in { "Level", "WinCurrency", "EquippedMount", "Rebirth", "Mounts" } do
+		DataService:getChangedSignal({ key }):Connect(refreshActionBadges)
+	end
+end)
+
 local rebirthPending = false
 rebirthButton.MouseButton1Click:Connect(function()
 	if rebirthPending then return end
@@ -252,9 +302,7 @@ end)
 Packets.RebirthResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	rebirthPending = false
 	if success then
-		MenuAnimations.close(menuRebirth)
-		MenuAnimations.blurOut()
-		openMenu = nil
+		MenuManager.close(menuRebirth)
 	else
 		showAlert("Cannot Rebirth", message)
 	end
@@ -262,44 +310,24 @@ end)
 
 -- ── Open / Close ─────────────────────────────────────────────────────────────
 
-local function closeAll()
-	if openMenu then
-		MenuAnimations.close(openMenu)
-		MenuAnimations.blurOut()
-		openMenu = nil
-	end
-end
-
-local function toggleMenu(menu: Frame, onOpen: (() -> ())?)
-	if openMenu == menu then
-		closeAll()
-	else
-		closeAll()
-		openMenu = menu
-		MenuAnimations.blurIn()
-		MenuAnimations.open(menu)
-		if onOpen then onOpen() end
-	end
-end
-
 btnEvolve.MouseButton1Click:Connect(function()
-	toggleMenu(menuEvolve, populateEvolveMenu)
+	MenuManager.toggle(menuEvolve, { onOpen = populateEvolveMenu })
 end)
 
 btnRebirth.MouseButton1Click:Connect(function()
-	toggleMenu(menuRebirth, populateRebirthMenu)
+	MenuManager.toggle(menuRebirth, { onOpen = populateRebirthMenu })
 end)
 
 closeEvolve.MouseButton1Click:Connect(function()
-	closeAll()
+	MenuManager.close(menuEvolve)
 end)
 
 closeRebirth.MouseButton1Click:Connect(function()
-	closeAll()
+	MenuManager.close(menuRebirth)
 end)
 
 closeIndex.MouseButton1Click:Connect(function()
-	closeAll()
+	MenuManager.close(menuIndex)
 end)
 
 -- ── Menú Index ────────────────────────────────────────────────────────────────
@@ -438,14 +466,14 @@ local function populateIndexMenu()
 end
 
 btnIndex.MouseButton1Click:Connect(function()
-	toggleMenu(menuIndex, populateIndexMenu)
+	MenuManager.toggle(menuIndex, { onOpen = populateIndexMenu })
 end)
 
 -- Re-render grid si Index está abierto y cambia montura o inventario
 task.spawn(function()
 	DataService:waitForData()
 	local function refreshIfOpen()
-		if openMenu ~= menuIndex then return end
+		if not MenuManager.isOpen(menuIndex) then return end
 		local equippedName = (DataService:get({ "EquippedMount" }) or "Chonk") :: string
 		local ownedMounts  = (DataService:get({ "Mounts" }) or {}) :: {[string]: boolean}
 		populateWorldGrid(selectedWorldKey, ownedMounts, equippedName)

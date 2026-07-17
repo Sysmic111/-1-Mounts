@@ -23,6 +23,9 @@
       "Daily": {
         "$path": "src/features/Daily/server"
       },
+      "Economy": {
+        "$path": "src/features/Economy/server"
+      },
       "Environment": {
         "$path": "src/features/Environment/server"
       },

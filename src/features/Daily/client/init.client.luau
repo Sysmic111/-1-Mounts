@@ -8,6 +8,8 @@ local SoundService      = game:GetService("SoundService")
 local Workspace         = game:GetService("Workspace")
 
 local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
+local NotifyBadge    = require(ReplicatedStorage.Shared.NotifyBadge)
 local DailyConfig    = require(ReplicatedStorage.Shared.DailyConfig)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
 local DataService    = require(ReplicatedStorage.Packages.DataService).client
@@ -41,7 +43,6 @@ local CLAIMABLE_STROKE = Color3.fromRGB(255, 221, 0)
 local LOCKED_COLOR = Color3.fromRGB(96, 118, 133)
 local NORMAL_TINT  = Color3.fromRGB(255, 255, 255)
 
-local isOpen        = false
 local claimPending  = false
 local cardsByDay    = {} :: { [number]: ImageButton }
 local pulseTween: Tween? = nil
@@ -87,59 +88,9 @@ end
 
 -- ── Indicador "!" del botón Daily ────────────────────────────────────────────
 
-local function getBadge(): Frame
-	local existing = btnDaily:FindFirstChild("ClaimBadge") :: Frame?
-	if existing then return existing end
-
-	local badge = Instance.new("Frame")
-	badge.Name                 = "ClaimBadge"
-	badge.AnchorPoint          = Vector2.new(0.5, 0.5)
-	badge.Position             = UDim2.fromScale(0.9, 0.1)
-	badge.Size                 = UDim2.fromScale(0.3, 0.3)
-	badge.BackgroundColor3     = Color3.fromRGB(255, 0, 0)
-	badge.BorderSizePixel      = 0
-	badge.ZIndex               = 5
-	badge.Visible              = false
-	badge.Parent               = btnDaily
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.25, 0)
-	corner.Parent       = badge
-
-	local ratio = Instance.new("UIAspectRatioConstraint")
-	ratio.AspectRatio = 1
-	ratio.Parent      = badge
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color        = Color3.fromRGB(0, 0, 0)
-	stroke.Thickness    = 2
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent       = badge
-
-	local label = Instance.new("TextLabel")
-	label.Size                   = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Text                   = "!"
-	label.TextScaled             = true
-	label.TextColor3             = Color3.fromRGB(255, 255, 255)
-	label.FontFace               = Font.fromName("ComicNeueAngular", Enum.FontWeight.Bold)
-	label.ZIndex                 = 6
-	label.Parent                 = badge
-
-	local labelStroke = Instance.new("UIStroke")
-	labelStroke.Color        = Color3.fromRGB(0, 0, 0)
-	labelStroke.Thickness    = 2
-	labelStroke.LineJoinMode = Enum.LineJoinMode.Round
-	labelStroke.Parent       = label
-
-	return badge
-end
-
-local badge = getBadge()
-
 local function refreshBadge()
 	local _, claimedToday = getState()
-	badge.Visible = not claimedToday
+	NotifyBadge.setVisible(btnDaily, not claimedToday)
 end
 
 -- ── Cards ────────────────────────────────────────────────────────────────────
@@ -226,7 +177,7 @@ local function populate(focusOverride: number?)
 	local focusDay = focusOverride or claimableDay or DailyConfig.getNextDay(claimedDay)
 	task.defer(function()
 		local card = cardsByDay[focusDay]
-		if not card or not isOpen then return end
+		if not card or not MenuManager.isOpen(menuDaily) then return end
 		local cardWidth = card.AbsoluteSize.X
 		if cardWidth <= 0 then return end
 		local target = (focusDay - 1) * cardWidth - (scrolling.AbsoluteSize.X - cardWidth) / 2
@@ -238,7 +189,7 @@ end
 
 task.spawn(function()
 	while true do
-		if isOpen then
+		if MenuManager.isOpen(menuDaily) then
 			local _, claimedToday = getState()
 			if claimedToday then
 				nextReward.Text = "Next reward in: "
@@ -261,37 +212,20 @@ task.spawn(function()
 		if today ~= lastDay then
 			lastDay = today
 			refreshBadge()
-			if isOpen then populate() end
+			if MenuManager.isOpen(menuDaily) then populate() end
 		end
 	end
 end)
 
 -- ── Open / Close ─────────────────────────────────────────────────────────────
 
-local function closeMenu()
-	if not isOpen then return end
-	isOpen = false
-	MenuAnimations.close(menuDaily)
-	MenuAnimations.blurOut()
-end
-
-local function openMenu()
-	if isOpen then return end
-	isOpen = true
-	MenuAnimations.blurIn()
-	MenuAnimations.open(menuDaily)
-	populate()
-end
-
 btnDaily.MouseButton1Click:Connect(function()
-	if isOpen then
-		closeMenu()
-	else
-		openMenu()
-	end
+	MenuManager.toggle(menuDaily, { onOpen = populate })
 end)
 
-closeDaily.MouseButton1Click:Connect(closeMenu)
+closeDaily.MouseButton1Click:Connect(function()
+	MenuManager.close(menuDaily)
+end)
 
 -- ── Efecto de claim ──────────────────────────────────────────────────────────
 
@@ -425,7 +359,7 @@ Packets.ClaimDailyResult.OnClientEvent:Connect(function(success: boolean, day: n
 	claimPending = false
 	if success then
 		refreshBadge()
-		if isOpen then
+		if MenuManager.isOpen(menuDaily) then
 			populate(day)
 			-- playClaimEffect espera un frame: fuera del handler del packet.
 			task.spawn(playClaimEffect, day)
@@ -443,7 +377,7 @@ task.spawn(function()
 
 	local function onDataChanged()
 		refreshBadge()
-		if isOpen then populate() end
+		if MenuManager.isOpen(menuDaily) then populate() end
 	end
 	DataService:getChangedSignal({ "DailyClaimedDay" }):Connect(onDataChanged)
 	DataService:getChangedSignal({ "DailyLastClaimDate" }):Connect(onDataChanged)
