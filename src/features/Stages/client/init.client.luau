@@ -1,11 +1,14 @@
 --!strict
 
-local Players           = game:GetService("Players")
-local TweenService      = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players            = game:GetService("Players")
+local TweenService       = game:GetService("TweenService")
+local ReplicatedStorage  = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
 
-local Packets     = require(ReplicatedStorage.Shared.Packets)
-local MenuManager = require(ReplicatedStorage.Shared.MenuManager)
+local Packets      = require(ReplicatedStorage.Shared.Packets)
+local MenuManager  = require(ReplicatedStorage.Shared.MenuManager)
+local ReviveConfig = require(ReplicatedStorage.Shared.ReviveConfig)
+local DataService  = require(ReplicatedStorage.Packages.DataService).client
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -15,6 +18,15 @@ local reviveFrame = menus:WaitForChild("Revive") :: Frame
 local fill        = reviveFrame:WaitForChild("Progress"):WaitForChild("Fill") :: Frame
 local reviveBtn   = reviveFrame:WaitForChild("Revive") :: ImageButton
 local closeBtn    = reviveFrame:WaitForChild("Right"):WaitForChild("Close") :: ImageButton
+
+-- El botón Revive muestra el costo con estos dos hijos (icono de Robux + precio).
+-- Para dueños de Infinite Revives se ocultan y el revive es gratis.
+local reviveCostIcon  = reviveBtn:WaitForChild("ImageLabel") :: ImageLabel
+local reviveCostLabel = reviveBtn:WaitForChild("CardName")   :: TextLabel
+
+local function ownsInfiniteRevives(): boolean
+	return DataService:get({ "InfiniteRevives" }) == true
+end
 
 local TIMER_INFO = TweenInfo.new(5, Enum.EasingStyle.Linear)
 local FULL_SIZE  = UDim2.new(1, 0, 1, 0)
@@ -51,6 +63,12 @@ local function openRevive()
 
 	fill.Size = FULL_SIZE
 
+	-- Dueños de Infinite Revives: sin costo, revive gratis. Resto: se muestra el
+	-- icono de Robux + el precio, y el botón lanza la compra por uso.
+	local owner = ownsInfiniteRevives()
+	reviveCostIcon.Visible = not owner
+	reviveCostLabel.Text   = owner and "Revive" or "9"
+
 	MenuManager.open(reviveFrame, { onClose = cleanup })
 
 	local tween = TweenService:Create(fill, TIMER_INFO, { Size = EMPTY_SIZE })
@@ -65,11 +83,56 @@ local function openRevive()
 	end)
 
 	reviveConn = reviveBtn.Activated:Connect(function()
-		Packets.RequestRevive:Fire()
-		closeRevive()
+		if ownsInfiniteRevives() then
+			-- Revive gratis: el servidor valida la propiedad antes de teleportar.
+			Packets.RequestRevive:Fire()
+			closeRevive()
+		else
+			-- Revive por uso: el teleport lo hace el servidor al procesar el recibo.
+			MarketplaceService:PromptProductPurchase(player, ReviveConfig.ReviveOnceProductId)
+		end
 	end)
 
 	closeConn = closeBtn.Activated:Connect(closeRevive)
 end
 
 Packets.ShowRevive.OnClientEvent:Connect(openRevive)
+
+-- ── Botón "Infinite Revives" (panel Right) ────────────────────────────────────
+
+-- El botón comparte el nombre de instancia "Speed" con el de "x2 Speed": se
+-- distinguen SOLO por el texto de su Button.Title.
+task.spawn(function()
+	local right = playerGui:WaitForChild("Right")
+	local line1 = right:WaitForChild("Main"):WaitForChild("Line1")
+
+	local infiniteBtn: ImageButton? = nil
+	for _, child in line1:GetChildren() do
+		if not child:IsA("ImageButton") then continue end
+		local title = child:FindFirstChild("Button")
+			and (child:FindFirstChild("Button") :: Instance):FindFirstChild("Title") :: TextLabel?
+		if title and title.Text == "Infinite Revives" then
+			infiniteBtn = child :: ImageButton
+			break
+		end
+	end
+	if not infiniteBtn then
+		warn("[Revive] No se encontró el botón Infinite Revives en Right.Main.Line1")
+		return
+	end
+	local button = infiniteBtn :: ImageButton
+
+	-- Oferta única: al comprarse, el botón desaparece (la UIListLayout recoloca).
+	local function refresh()
+		button.Visible = not ownsInfiniteRevives()
+	end
+
+	button.Activated:Connect(function()
+		if ownsInfiniteRevives() then return end
+		MarketplaceService:PromptProductPurchase(player, ReviveConfig.InfiniteRevivesProductId)
+	end)
+
+	DataService:waitForData()
+	refresh()
+	DataService:getChangedSignal({ "InfiniteRevives" }):Connect(refresh)
+end)

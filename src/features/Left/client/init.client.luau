@@ -150,8 +150,16 @@ local function populateEvolveMenu()
 		actualQuantity.Text = "x" .. tostring(currentMount.Multiplier)
 		nextQuantity.Text   = nextMount and ("x" .. tostring(nextMount.Multiplier)) or "MAX"
 
+		local ownedMounts = (DataService:get({ "Mounts" }) or {}) :: { [string]: boolean }
+
 		-- Barras de progreso
-		if nextMount and nextMount.EvolveRequirements then
+		if nextMount and ownedMounts[nextMount.Name] then
+			-- Ya poseída (las mounts persisten tras el rebirth): re-equipar es gratis
+			TweenService:Create(winsFill,   FILL_TWEEN, { Size = UDim2.new(1, 0, 1, 0) }):Play()
+			TweenService:Create(levelsFill, FILL_TWEEN, { Size = UDim2.new(1, 0, 1, 0) }):Play()
+			winsTitle.Text   = "Owned"
+			levelsTitle.Text = "Owned"
+		elseif nextMount and nextMount.EvolveRequirements then
 			local reqs = nextMount.EvolveRequirements
 
 			local winsRatio  = math.clamp(playerWins  / reqs.Wins,  0, 1)
@@ -246,7 +254,8 @@ end)
 -- un badge que promete un evolve que el servidor luego rechaza es peor que no tenerlo.
 
 -- MountsService:_handleEvolve: la montura equipada debe estar en World1, tener
--- siguiente, y cumplir Level Y Wins.
+-- siguiente, y cumplir Level Y Wins — o poseer ya la siguiente (las mounts
+-- persisten tras el rebirth y re-equipar es gratis).
 local function canEvolve(): boolean
 	local equippedName = DataService:get({ "EquippedMount" }) :: string?
 	if not equippedName then return false end
@@ -261,7 +270,12 @@ local function canEvolve(): boolean
 	if not currentIndex then return false end
 
 	local nextMount = MountsConfig.World1[currentIndex + 1]
-	local reqs = nextMount and nextMount.EvolveRequirements
+	if not nextMount then return false end
+
+	local ownedMounts = (DataService:get({ "Mounts" }) or {}) :: { [string]: boolean }
+	if ownedMounts[nextMount.Name] then return true end
+
+	local reqs = nextMount.EvolveRequirements
 	if not reqs then return false end
 
 	local playerLevel = (DataService:get({ "Level" }) or 1)   :: number

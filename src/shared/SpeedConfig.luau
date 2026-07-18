@@ -18,10 +18,11 @@ local SpeedConfig = {
 	-- (mount 1→90 × steps 1→2000 × hat 1→5 × trail 1→4). Una curva polinómica
 	-- crecía solo x10 entre el nivel 50 y el 130 y los multiplicadores la
 	-- reventaban: el nivel 130 caía en segundos.
-	-- Growth es la palanca de duración del juego: 1.215 → ~6.7h hasta nivel 130,
-	-- 1.225 → ~8.9h, 1.235 → ~11.8h.
+	-- Growth es la palanca de duración del juego (modelo con mounts persistentes
+	-- tras el rebirth): 1.225 → ~7.1h hasta nivel 130, 1.230 → ~8.75h,
+	-- 1.234 → ~10.2h.
 	BaseRequiredSpeed = 8,
-	RequiredSpeedGrowth = 1.225,
+	RequiredSpeedGrowth = 1.230,
 
 	StudsPerSpeed = 5,
 	MovementCheckInterval = 0.1,
@@ -30,7 +31,7 @@ local SpeedConfig = {
 }
 
 -- Speed necesario para pasar de `level` a `level + 1`.
--- req(1)=8, req(40)=21.864, req(130)=1.87e12
+-- req(1)=8, req(40)≈25.7K, req(130)≈3.2e12
 function SpeedConfig.getRequiredSpeedForLevel(level: number): number
 	return math.max(1, math.floor(SpeedConfig.BaseRequiredSpeed * (SpeedConfig.RequiredSpeedGrowth ^ (level - 1))))
 end

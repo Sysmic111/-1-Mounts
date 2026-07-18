@@ -134,6 +134,19 @@ function MountsService:_handleEvolve(player: Player): ()
 		return
 	end
 
+	-- Las mounts persisten tras el rebirth: si la siguiente ya es del jugador
+	-- (p. ej. equipó una inferior y vuelve a subir), re-equipar gratis. Sin este
+	-- fast-path se le cobrarían Wins por una montura que ya posee.
+	if dataService:get(player, { "Mounts", nextMount.Name }) == true then
+		dataService:set(player, { "EquippedMount" }, nextMount.Name)
+		MorphService.MorphPlayer(player, nextMount.Name)
+		if self._speedService then
+			self._speedService:updateTotalMultiplier(player)
+		end
+		Packets.EvolveMountResult:FireClient(player, true, "")
+		return
+	end
+
 	local reqs = nextMount.EvolveRequirements
 	if not reqs then
 		Packets.EvolveMountResult:FireClient(player, false, "Next mount has no requirements defined.")

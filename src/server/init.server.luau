@@ -51,6 +51,7 @@ DataService:init({
 		DailyClaimedDay    = 0,
 		DailyLastClaimDate = 0,
 		StarterPackBought  = false,
+		InfiniteRevives    = false,
 	},
 })
 
@@ -71,7 +72,7 @@ PlayTimeService:init()
 PlayTimeService:setSpeedService(SpeedService)
 SpeedService:setPlayTimeService(PlayTimeService)
 AgilityService:init(DataService)
-StagesService:init()
+StagesService:init(DataService, RobuxService)
 LavaService:init()
 DeathEffectService:init()
 RobuxService:init(DataService)

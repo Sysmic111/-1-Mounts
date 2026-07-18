@@ -3,9 +3,23 @@
 local Players   = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
-local Packets = require(game.ReplicatedStorage.Shared.Packets)
+local Packets      = require(game.ReplicatedStorage.Shared.Packets)
+local ReviveConfig = require(game.ReplicatedStorage.Shared.ReviveConfig)
 
-local StagesService = {}
+type DataServiceServer = {
+	waitForData: (self: DataServiceServer, player: Player) -> any,
+	hasProfile:  (self: DataServiceServer, player: Player) -> boolean,
+	get:         (self: DataServiceServer, player: Player, path: { string }) -> any,
+	set:         (self: DataServiceServer, player: Player, path: { string }, value: any, dontReplicate: boolean?) -> (),
+}
+
+type RobuxServiceLike = {
+	registerProduct: (self: any, productId: number, handler: (player: Player, receiptInfo: any) -> Enum.ProductPurchaseDecision) -> (),
+}
+
+local StagesService = {
+	_dataService = nil :: DataServiceServer?,
+}
 
 local stagesFolder = Workspace:WaitForChild("Stages") :: Folder
 
@@ -13,7 +27,30 @@ local function getStageNumber(stageName: string): number
 	return tonumber(stageName:match("%d+")) or 0
 end
 
-function StagesService:init(): ()
+function StagesService:init(dataService: DataServiceServer, robuxService: RobuxServiceLike): ()
+	self._dataService = dataService
+
+	-- InfiniteRevives: compra única, marca el flag (idempotente ante reintentos).
+	robuxService:registerProduct(ReviveConfig.InfiniteRevivesProductId, function(player, _receiptInfo)
+		if not dataService:hasProfile(player) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		if dataService:get(player, { "InfiniteRevives" }) ~= true then
+			dataService:set(player, { "InfiniteRevives" }, true)
+		end
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end)
+
+	-- ReviveOnce: consumible. Cada compra concede un revive (teleport al último
+	-- stage). Se otorga en el recibo, no en el cliente.
+	robuxService:registerProduct(ReviveConfig.ReviveOnceProductId, function(player, _receiptInfo)
+		if not dataService:hasProfile(player) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		self:_teleportToLastStage(player)
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end)
+
 	-- Touch detection wired once per stage at startup
 	for _, child in stagesFolder:GetChildren() do
 		local stage = child :: Model
@@ -88,7 +125,9 @@ function StagesService:_onCharacterAdded(player: Player, character: Model): ()
 	end)
 end
 
-function StagesService:_handleRevive(player: Player): ()
+-- Núcleo del revive: teleporta al jugador (ya respawneado en la base) de vuelta
+-- a su último stage. Lo usan tanto el revive gratis (dueños) como el de pago.
+function StagesService:_teleportToLastStage(player: Player): ()
 	local lastStage = (player:GetAttribute("LastStage") or 0) :: number
 	if lastStage < 2 then return end
 
@@ -105,6 +144,17 @@ function StagesService:_handleRevive(player: Player): ()
 	if not humanoid or humanoid.Health <= 0 then return end
 
 	hrp.CFrame = pp.CFrame * CFrame.new(0, 5, -10)
+end
+
+-- Revive gratis vía RequestRevive: SOLO para dueños de Infinite Revives. Sin el
+-- gate, cualquier cliente podría spamear el remote y revivir gratis saltándose la
+-- compra por uso.
+function StagesService:_handleRevive(player: Player): ()
+	local ds = self._dataService
+	if not ds or not ds:hasProfile(player) then return end
+	if ds:get(player, { "InfiniteRevives" }) ~= true then return end
+
+	self:_teleportToLastStage(player)
 end
 
 return StagesService

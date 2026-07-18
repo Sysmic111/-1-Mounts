@@ -28,7 +28,7 @@ function NotifyBadge.get(button: GuiObject): Frame
 	badge.Parent           = button
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.25, 0)
+	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent       = badge
 
 	local ratio = Instance.new("UIAspectRatioConstraint")
@@ -47,7 +47,7 @@ function NotifyBadge.get(button: GuiObject): Frame
 	label.Text                   = "!"
 	label.TextScaled             = true
 	label.TextColor3             = Color3.fromRGB(255, 255, 255)
-	label.FontFace               = Font.fromName("ComicNeueAngular", Enum.FontWeight.Bold)
+	label.FontFace               = Font.fromName("FredokaOne")
 	label.ZIndex                 = 6
 	label.Parent                 = badge
 

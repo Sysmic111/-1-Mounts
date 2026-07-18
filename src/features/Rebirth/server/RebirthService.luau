@@ -4,7 +4,6 @@ local Players   = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
-local MorphService  = require(game.ServerScriptService.Mounts.MorphService)
 local Packets       = require(game.ReplicatedStorage.Shared.Packets)
 
 type DataServiceServer = {
@@ -56,12 +55,12 @@ function RebirthService:_handleRebirth(player: Player): ()
 		return
 	end
 
-	-- Aplicar rebirth
+	-- Aplicar rebirth. SOLO se resetean Level y SpeedCurrency: las mounts (todas,
+	-- incluidas las Premium y las del Daily) se conservan, igual que WinCurrency,
+	-- hats, trails y steps. El jugador sigue montado en su montura equipada.
 	dataService:set(player, { "Rebirth" },       rebirthCount + 1)
 	dataService:set(player, { "Level" },          1)
 	dataService:set(player, { "SpeedCurrency" },  0)
-	dataService:set(player, { "Mounts" },         { Chonk = true })
-	dataService:set(player, { "EquippedMount" },  "Chonk")
 
 	-- Teleportar al spawn
 	local character = player.Character
@@ -72,8 +71,8 @@ function RebirthService:_handleRebirth(player: Player): ()
 		end
 	end
 
-	-- Equipar Chonk (morph)
-	MorphService.MorphPlayer(player, "Chonk")
+	-- Sin morph: la montura equipada se conserva. Solo recalcular el multiplicador
+	-- (cambia el factor de rebirth).
 	if self._speedService then
 		self._speedService:updateTotalMultiplier(player)
 	end

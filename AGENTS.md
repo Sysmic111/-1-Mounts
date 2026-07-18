@@ -15,8 +15,15 @@
 ## DataService (leifstout)
 - Cliente: `DataService:get({ "Key" })`, `DataService:getChangedSignal({ "Key" }):Connect(fn)`, `DataService:waitForData()`
 - Servidor: `DataService:get(player, { "Key" })`, `DataService:set(player, { "Key" }, value)`, `DataService:waitForData(player)`, `DataService:hasProfile(player)`
-- Template de datos del jugador (definido en `src/server/init.server.luau`):
-  `SpeedCurrency`, `WinCurrency`, `Level`, `Rebirth`, `EquippedMount`, `Mounts = { Chonk = true }`
+- Template de datos del jugador: definido en `src/server/init.server.luau` (fuente de verdad).
+  Progresión: `SpeedCurrency`, `WinCurrency`, `Level`, `Rebirth`, `EquippedMount`,
+  `Mounts = { Chonk = true }`. Compras: `Treadmill<Tier>`, `Hats`/`EquippedHat`,
+  `Trails`/`EquippedTrail`, `StepsEquipped`, `StarterPackBought`. Daily: `DailyClaimedDay`,
+  `DailyLastClaimDate`
+- El rebirth SOLO resetea `Level` y `SpeedCurrency`. Todo lo demás se conserva: `WinCurrency`,
+  las mounts (todas, incluidas Premium y las del Daily), la montura equipada, hats, trails y steps
+- Los `StepUnlocked_<N>` son claves planas creadas on-demand al comprar; solo `StepUnlocked_1`
+  está en el template
 
 ## Arquitectura de features
 - `src/features/<Feature>/server/` → ServerScriptService.<Feature> (via Rojo)
@@ -39,12 +46,62 @@
 - Los steps y el treadmill NO están dentro de TotalMultiplier: se multiplican aparte en `SpeedService`
 
 ## Economía / balance
-- El recorrido del juego es el rango de niveles 1..130 (nivel 130 = se pasa el stage 14), con 8 rebirths
-- `SpeedConfig.RequiredSpeedGrowth` es la palanca de duración total: 1.215 → ~6.7h, 1.225 → ~8.9h, 1.235 → ~11.8h
-- Los `WinsQuantity` de stages y steps buttons son atributos de Workspace: NO editarlos a mano en Studio.
-  Se siembran desde `EconomyConfig.luau` vía `EconomyService:seedWorkspace()`
-- `EconomyService:seedWorkspace()` DEBE correr antes de `WinsService:init` y `StepsService:init` — ambos
-  leen esos atributos una sola vez y los cachean
+
+### Forma del juego
+- El recorrido es el rango de niveles **1..130** (nivel 130 = se pasa el stage 14), con **8 rebirths**
+- Duración objetivo ~9h. Hitos simulados: R1 a los 22 min, R8 a las 7.2h, nivel 130 a las 8.75h
+  con las 20 mounts de World1 y los 12 steps buttons
+- Un "ciclo" = subir de nivel 1 al nivel que pide el siguiente rebirth. El rebirth SOLO resetea
+  `Level` y `SpeedCurrency`: las **mounts PERSISTEN** (y con ellas su multiplicador), igual que
+  `WinCurrency`, hats, trails y steps
+- Reparto de niveles: rebirths 40→125, evolves de mounts 5→126, stages 2→14 mapeados a nivel 1→130
+  (el mapa stage→nivel está comentado en `EconomyConfig.luau`; no se aplica por código, la dificultad
+  es geometría)
+
+### La curva de niveles es EXPONENCIAL a propósito
+- `req(L) = floor(8 × 1.230^(L-1))` en `SpeedConfig.getRequiredSpeedForLevel`
+- **No volver a una curva polinómica.** Dentro de un mismo ciclo el ingreso crece ×3.600.000
+  (mount 1→90 × steps 1→2000 × hat 1→5 × trail 1→4). La curva vieja (`5 × L^1.45`) solo crecía ×10
+  entre el nivel 50 y el 130: con un stack modesto el nivel 130 caía en 218 segundos, y con el stack
+  completo en 3×10⁻⁸ s
+- `SpeedConfig.RequiredSpeedGrowth` es la palanca de duración total (con mounts persistentes):
+  1.225 → ~7.1h, 1.230 → ~8.75h, 1.234 → ~10.2h. Es lo único que hay que tocar para reajustar
+  el ritmo global. Subir los Wins de los evolves NO es la palanca: las mounts son el motor del
+  ingreso y encarecerlas frena todo el juego (medido: 15-21h y sin completar la cadena)
+- Números grandes (~3.2e12 en el nivel 130) son normales: la UI ya formatea con K/M/B
+
+### Cosas que no son obvias y rompen el balance si se olvidan
+- El `WinsMultiplier` del rebirth se aplica **dos veces**: a los Wins en `WinsService:_creditWins`
+  y al Speed dentro del `TotalMultiplier`. Por eso el techo es x26 y no x248
+- La tasa de paquetes se satura a **10/s cuando WalkSpeed ≥ 50, o sea nivel 34**. A partir de ahí
+  subir de nivel NO acelera el farmeo; solo lo hacen los multiplicadores
+- El evolve **consume Wins** pero solo **requiere** Level. Como las mounts persisten, la cadena es
+  una **compra única** (1.138.230 Wins en total): el mayor sink del juego, pero no recurrente. Tras
+  completarla, los únicos sinks de Wins que quedan son los cosméticos top (hat Dev, Frost/Rainbow) —
+  contenido nuevo de Wins debería tenerlo en cuenta
+- Evolucionar hacia una montura **ya poseída** re-equipa gratis (fast-path en
+  `MountsService:_handleEvolve`, espejado en el `canEvolve` del cliente). Sin él, se cobraría dos
+  veces la misma montura
+- Los gates de Level reparten la cadena entre ciclos sin re-espaciarla: cada ciclo llega más alto
+  (40, 55, 68… 130), así que Raiketsu cae en el ciclo 1 y Nyxion solo en el final
+- Regalar Speed crudo (Daily, StarterPack) escribe `SpeedCurrency` sin pasar por `_addSpeed`: el
+  level-up se resuelve en el siguiente paquete de movimiento. Una cantidad fija de Speed caduca
+  rápido en una curva exponencial — para premios permanentes usar Wins
+
+### Atributos de Workspace: sembrar, no editar a mano
+- Los `WinsQuantity` de stages y steps buttons son atributos de Workspace: **NO editarlos en Studio**.
+  Se siembran desde `EconomyConfig.luau` vía `EconomyService:seedWorkspace()` para que el balance
+  se versione en git y no en el `.rbxl`
+- `EconomyService:seedWorkspace()` DEBE correr antes de `WinsService:init` y `StepsService:init` —
+  ambos leen esos atributos una sola vez y los cachean (`buildStepsMap` nunca re-escanea)
+- Fuera de este sistema (siguen a mano en Studio): multiplicadores de treadmill y `StepsIncresement`
+
+### Cómo revalidar un cambio de balance
+- Hay un modelo en JS que parsea los `.luau` reales y simula un jugador (ingreso/s, compras greedy,
+  playtime por sesión, 60% obby / 40% treadmill). Las mounts PERSISTEN en el rebirth: el índice de
+  mount NO se resetea en la simulación. Reproducir con los hitos de arriba
+- Parsear SIEMPRE solo el bloque `World1` de MountsConfig: las 5 Premium tienen
+  `EvolveRequirements = nil` y un regex ingenuo las cuela como evolves gratis
 
 ## Menú Index
 - Las imágenes de mounts son placeholders en MountsConfig — asignarles IDs reales
@@ -72,6 +129,51 @@
 - Las condiciones del badge en el cliente son ESPEJO de las del servidor
   (`MountsService:_handleEvolve`, `RebirthService:_handleRebirth`) — si cambian allí, cambiarlas aquí
 
+## Robux / Developer Products
+- `ProcessReceipt` es único en el juego y lo posee `RobuxService`, que actúa de **router**.
+  Un feature nuevo con producto NO toca ProcessReceipt: llama a
+  `robuxService:registerProduct(productId, handler)` en su `init`
+- El handler corre con el perfil ya cargado y debe ser **idempotente**: Roblox reintenta los recibos.
+  Patrón: comprobar el flag de propiedad, marcarlo ANTES de acreditar, devolver `PurchaseGranted`
+- El cliente solo lanza `MarketplaceService:PromptProductPurchase`. Nunca concede nada
+- No hay gamepasses en el proyecto, solo Developer Products
+- ProductIds: treadmills Gold/Diamond/Emerald/Ruby (`RobuxConfig`), mounts Premium Vespofuzz y
+  Phantom Chopper (`MountsConfig.Premium`), botón premium de Wins (`WinsConfig.PremiumProductId`,
+  uno solo compartido por los 13 → su valor debe escalar con el stage), StarterPack
+  (`StarterPackConfig`)
+- Los precios en Robux viven en la web de Roblox; los `Price.Title` de la UI son cosméticos y pueden
+  desincronizarse
+
+## Daily Login
+- El día se decide por **fecha UTC absoluta** (`floor(os.time() / 86400)`), NO por "24h desde el claim":
+  reclamar a las 23:50 UTC permite volver a reclamar a las 00:10 UTC
+- Saltarse días no reinicia la racha, solo la retrasa. Día 22 = repetible indefinidamente
+- El servidor es la única fuente de verdad del calendario: el cliente solo pide "claim"
+- Las mounts de los días 7/14/21 (Velune, Droth, Pyrax) están en `MountsConfig.Premium` sin ProductId
+  → no son comprables, solo salen del Daily. Como las mounts persisten tras el rebirth, son permanentes
+
+## StarterPack
+- Oferta única (`StarterPackBought`). Al comprarse se oculta el botón `Right.Main.Line1.Starter`
+- Sus dos cards están hechas a mano en Studio, comparten nombre y `LayoutOrder`: se distinguen por
+  su icono (`StarterPackConfig.WinsIcon` / `SpeedIcon`) y el config manda sobre el `RewardText`
+
 ## CollectionService tags en Workspace
 - `"Treadmill"` → modelos de cinta; detección por posición (no Touched) en Heartbeat
 - `"WinButton"` → modelos con atributo `WinsQuantity`; contienen `BasePart > SurfaceGui > TextLabel`
+- `"StepButton"` → lo usa el cliente de Steps. OJO: el servidor NO usa el tag, filtra por
+  `Name == "Steps"` dentro de `Workspace.StepsButtons`. Un botón tageado pero fuera de esa carpeta
+  se ve y se puede pisar, pero el servidor lo rechaza
+- `"Lava"` → kill brick (tag hardcodeado en `LavaService`)
+
+## Trampas conocidas (sin arreglar)
+- **Treadmill validado por máximo global**: `getMaxTreadmillMultiplier` comprueba si el jugador
+  *puede* usar un multiplicador, no si está encima de esa cinta. Con Ruby comprado se puede reclamar
+  x100 estando en una x1. Distorsiona cualquier medición de tiempos
+- **`RequestSpeedGain` sin validación de posición**: el servidor solo aplica rate limit (10/s) y el
+  clamp de treadmill. Un cliente puede spamear el paquete quieto
+- **`WallHit`**: remote sin validación; el cliente puede pedir su propia muerte
+- **El treadmill de `Rebirth=1` da x1**, igual que el gratuito (mejora muerta), y la rama de rebirth
+  se corta en x4 (Rebirth=3)
+- **Posible desincronía repo/place**: se han visto números en el juego que no cuadran con las
+  fórmulas del repo. Ante resultados raros en un playtest, verificar que Rojo esté sincronizado antes
+  de tocar el balance

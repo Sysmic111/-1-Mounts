@@ -26,9 +26,13 @@ local MountsConfig = {
 	} :: { WorldData },
 
 	-- La cadena de evolución completa cabe dentro del rango 1..130, que es el
-	-- recorrido del juego. El rebirth borra Mounts pero conserva WinCurrency, así
-	-- que estos Wins se re-pagan en cada ciclo: es el sink principal del juego
-	-- (535.230 Wins por ciclo).
+	-- recorrido del juego. Las mounts PERSISTEN tras el rebirth: la cadena es una
+	-- compra única (1.138.230 Wins en total), el mayor sink del juego. Los gates
+	-- de Level la reparten solos entre los ciclos, porque cada ciclo llega más
+	-- alto (40, 55, 68... 130): Raiketsu cae en el ciclo 1 y Nyxion solo en el
+	-- final. OJO: subir estos Wins NO es la palanca de duración (las mounts son el
+	-- motor del ingreso y encarecerlas frena todo el juego) — la palanca es
+	-- SpeedConfig.RequiredSpeedGrowth.
 	World1 = {
 		{ Name = "Chonk",     Multiplier = 1.00,  Image = "rbxassetid://100326118934119", EvolveRequirements = nil                          },
 		{ Name = "Moru",      Multiplier = 1.25,  Image = "rbxassetid://97674690910640",  EvolveRequirements = { Level = 5,   Wins = 5      } },
@@ -46,10 +50,10 @@ local MountsConfig = {
 		{ Name = "Prowly",    Multiplier = 25.00, Image = "rbxassetid://117894410844746", EvolveRequirements = { Level = 86,  Wins = 13000  } },
 		{ Name = "Nyx",       Multiplier = 32.00, Image = "rbxassetid://82695908784510",  EvolveRequirements = { Level = 93,  Wins = 21000  } },
 		{ Name = "Apex",      Multiplier = 40.00, Image = "rbxassetid://103363620861213", EvolveRequirements = { Level = 100, Wins = 33000  } },
-		{ Name = "Regal",     Multiplier = 50.00, Image = "rbxassetid://96629437634159",  EvolveRequirements = { Level = 107, Wins = 52000  } },
-		{ Name = "Skornclaw", Multiplier = 62.00, Image = "rbxassetid://98717951577991",  EvolveRequirements = { Level = 114, Wins = 80000  } },
-		{ Name = "Kharvox",   Multiplier = 75.00, Image = "rbxassetid://107557322180491", EvolveRequirements = { Level = 120, Wins = 125000 } },
-		{ Name = "Nyxion",    Multiplier = 90.00, Image = "rbxassetid://96015267241327",  EvolveRequirements = { Level = 126, Wins = 190000 } },
+		{ Name = "Regal",     Multiplier = 50.00, Image = "rbxassetid://96629437634159",  EvolveRequirements = { Level = 107, Wins = 90000  } },
+		{ Name = "Skornclaw", Multiplier = 62.00, Image = "rbxassetid://98717951577991",  EvolveRequirements = { Level = 114, Wins = 160000 } },
+		{ Name = "Kharvox",   Multiplier = 75.00, Image = "rbxassetid://107557322180491", EvolveRequirements = { Level = 120, Wins = 300000 } },
+		{ Name = "Nyxion",    Multiplier = 90.00, Image = "rbxassetid://96015267241327",  EvolveRequirements = { Level = 126, Wins = 500000 } },
 	} :: { MountData },
 
 	-- Secret Mounts del Index. Sin ProductId no se pueden comprar: las tres de
