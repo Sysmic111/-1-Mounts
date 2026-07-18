@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local MountsConfig = require(game.ReplicatedStorage.Shared.MountsConfig)
 local MorphService = require(script.Parent.MorphService)
 local Packets     = require(game.ReplicatedStorage.Shared.Packets)
+local FormatNumber = require(game.ReplicatedStorage.Packages.FormatNumber)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -17,6 +18,16 @@ local MountsService = {
 	_dataService  = nil :: DataServiceServer?,
 	_speedService = nil :: any,
 }
+
+local function getLatestOwnedWorld1Index(dataService: DataServiceServer, player: Player): number?
+	local ownedMounts = (dataService:get(player, { "Mounts" }) or {}) :: { [string]: boolean }
+	for i = #MountsConfig.World1, 1, -1 do
+		if ownedMounts[MountsConfig.World1[i].Name] then
+			return i
+		end
+	end
+	return nil
+end
 
 function MountsService:setSpeedService(speedService: any): ()
 	self._speedService = speedService
@@ -108,23 +119,11 @@ function MountsService:_handleEvolve(player: Player): ()
 	local dataService = self._dataService
 	if not dataService or not dataService:hasProfile(player) then return end
 
-	local equippedName = dataService:get(player, { "EquippedMount" }) :: string?
-	if not equippedName then
-		Packets.EvolveMountResult:FireClient(player, false, "No mount equipped.")
-		return
-	end
-
-	-- Encontrar índice actual en World1
-	local currentIndex: number? = nil
-	for i, mount in MountsConfig.World1 do
-		if mount.Name == equippedName then
-			currentIndex = i
-			break
-		end
-	end
-
+	-- La progresión no depende de EquippedMount: una montura Premium, Daily o una
+	-- base anterior equipada no debe cambiar cuál es el siguiente evolve.
+	local currentIndex = getLatestOwnedWorld1Index(dataService, player)
 	if not currentIndex then
-		Packets.EvolveMountResult:FireClient(player, false, "Current mount not found in progression.")
+		Packets.EvolveMountResult:FireClient(player, false, "No base mount unlocked.")
 		return
 	end
 
@@ -161,7 +160,8 @@ function MountsService:_handleEvolve(player: Player): ()
 		table.insert(missing, "Level " .. reqs.Level .. " (you have " .. playerLevel .. ")")
 	end
 	if playerWins < reqs.Wins then
-		table.insert(missing, reqs.Wins .. " Wins (you have " .. playerWins .. ")")
+		table.insert(missing, FormatNumber:formatNumberCoins(reqs.Wins)
+			.. " Wins (you have " .. FormatNumber:formatNumberCoins(playerWins) .. ")")
 	end
 
 	if #missing > 0 then

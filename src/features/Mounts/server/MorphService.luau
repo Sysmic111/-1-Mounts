@@ -16,6 +16,28 @@ end
 
 local HAT_BASE_SIZE = 9 -- Y del HRP de la montura de referencia (mountScale = 1)
 
+-- Animación en loop que corre el rider (la copia del personaje sentada sobre la
+-- montura) mientras la montura está equipada.
+local RIDER_ANIMATION_ID = "rbxassetid://76086496385671"
+
+-- Reproduce la animación del rider en loop sobre el humanoid de la copia. Su
+-- script Animate se destruyó antes de llamar aquí, así que nada compite con esta.
+local function playRiderAnimation(humanoid: Humanoid): ()
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local animation = Instance.new("Animation")
+	animation.AnimationId = RIDER_ANIMATION_ID
+
+	local track = (animator :: Animator):LoadAnimation(animation)
+	track.Looped = true
+	track.Priority = Enum.AnimationPriority.Action
+	track:Play()
+end
+
 -- Busca el attachment "Hat" del rig de la montura (variante Head o Neck.Head)
 local function findMountHatAttachment(hrp: Instance): Attachment?
 	local root = hrp:FindFirstChild("Root")
@@ -138,7 +160,9 @@ local function attachTrail(character: Model, trailName: string): ()
 	trail.Name = TRAIL_NAME
 	trail.Attachment0 = attL
 	trail.Attachment1 = attR
-	trail.Color = ColorSequence.new(trailData.Color)
+	-- Trail.Color es un ColorSequence: si el trail define un Gradient (Rainbow), se
+	-- usa tal cual para que la cinta muestre todo el espectro; el resto son color sólido.
+	trail.Color = trailData.Gradient or ColorSequence.new(trailData.Color)
 	trail.Texture = trailData.Texture
 	trail.Lifetime = 0.6
 	trail.LightEmission = 1
@@ -255,6 +279,7 @@ function MorphService.MorphPlayer(player: Player, mountName: string): ()
 		cloneHumanoid.WalkSpeed = 0
 		cloneHumanoid.JumpPower = 0
 		cloneHumanoid.AutoRotate = false
+		playRiderAnimation(cloneHumanoid)
 	end
 
 	-- Destruir el mount anterior si había uno

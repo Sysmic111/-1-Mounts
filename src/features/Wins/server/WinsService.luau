@@ -7,6 +7,7 @@ local Workspace = game:GetService("Workspace")
 
 local WinsConfig    = require(script.Parent.WinsConfig)
 local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
+local FormatNumber  = require(game.ReplicatedStorage.Packages.FormatNumber)
 
 type DataServiceServer = {
 	hasProfile: (self: DataServiceServer, player: Player) -> boolean,
@@ -113,7 +114,7 @@ function WinsService:_setupWinZone(winZone: Instance): ()
 	local surfaceGui = touchPart:FindFirstChild("SurfaceGui")
 	local label = surfaceGui and surfaceGui:FindFirstChild("TextLabel") :: TextLabel?
 	if label then
-		label.Text = "+ " .. tostring(winsQuantity)
+		label.Text = "+ " .. FormatNumber:formatNumberCoins(winsQuantity)
 	end
 
 	local state: WinZoneState = {
@@ -172,6 +173,10 @@ function WinsService:_creditWins(player: Player, winsQuantity: number): ()
 	local currentWins = dataService:get(player, { "WinCurrency" }) or 0
 	local newWins = currentWins + earned
 	dataService:set(player, { "WinCurrency" }, newWins)
+
+	-- Estadística de por vida: acumula todo lo ganado, no baja al gastar ni rebirthear.
+	local totalEarned = (dataService:get(player, { "TotalWinsEarned" }) or 0) :: number
+	dataService:set(player, { "TotalWinsEarned" }, totalEarned + earned)
 
 	debugPrint(`Wins entregados: {player.Name}, +{earned} (x{multiplier}), total={newWins}`)
 end

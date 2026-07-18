@@ -100,27 +100,10 @@ Packets.ShowRevive.OnClientEvent:Connect(openRevive)
 
 -- ── Botón "Infinite Revives" (panel Right) ────────────────────────────────────
 
--- El botón comparte el nombre de instancia "Speed" con el de "x2 Speed": se
--- distinguen SOLO por el texto de su Button.Title.
 task.spawn(function()
-	local right = playerGui:WaitForChild("Right")
-	local line1 = right:WaitForChild("Main"):WaitForChild("Line1")
-
-	local infiniteBtn: ImageButton? = nil
-	for _, child in line1:GetChildren() do
-		if not child:IsA("ImageButton") then continue end
-		local title = child:FindFirstChild("Button")
-			and (child:FindFirstChild("Button") :: Instance):FindFirstChild("Title") :: TextLabel?
-		if title and title.Text == "Infinite Revives" then
-			infiniteBtn = child :: ImageButton
-			break
-		end
-	end
-	if not infiniteBtn then
-		warn("[Revive] No se encontró el botón Infinite Revives en Right.Main.Line1")
-		return
-	end
-	local button = infiniteBtn :: ImageButton
+	local right  = playerGui:WaitForChild("Right")
+	local button = right:WaitForChild("Main"):WaitForChild("Line1")
+		:WaitForChild("InfiniteRevives") :: ImageButton
 
 	-- Oferta única: al comprarse, el botón desaparece (la UIListLayout recoloca).
 	local function refresh()

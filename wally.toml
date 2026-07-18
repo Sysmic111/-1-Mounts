@@ -6,5 +6,6 @@ realm = "shared"
 
 [dependencies]
 DataService = "leifstout/dataservice@1.0.0"
+TopbarPlus = "1foreverhd/topbarplus@3.4.0"
 
 [server-dependencies]

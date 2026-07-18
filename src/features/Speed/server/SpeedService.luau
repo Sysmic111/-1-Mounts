@@ -3,9 +3,10 @@
 local Players           = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
-local SpeedConfig    = require(game.ReplicatedStorage.Shared.SpeedConfig)
-local RebirthConfig  = require(game.ReplicatedStorage.Shared.RebirthConfig)
-local Packets        = require(game.ReplicatedStorage.Shared.Packets)
+local SpeedConfig      = require(game.ReplicatedStorage.Shared.SpeedConfig)
+local RebirthConfig    = require(game.ReplicatedStorage.Shared.RebirthConfig)
+local SpeedBoostConfig = require(game.ReplicatedStorage.Shared.SpeedBoostConfig)
+local Packets          = require(game.ReplicatedStorage.Shared.Packets)
 
 -- Returns the highest treadmill Multiplier the player is allowed to use,
 -- considering both rebirth-gated and Robux-gated treadmills.
@@ -180,10 +181,26 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 		trailMultiplier = self._trailsService:GetMultiplier(player)
 	end
 
-	local total = mountMultiplier * rebirthMultiplier * playTimeMultiplier * hatMultiplier * trailMultiplier
+	-- Speed Tier comprado con Robux (x2..x4096). Multiplicador de Speed, no de Wins:
+	-- por eso vive en TotalMultiplier (que solo afecta al Speed) y no en el path
+	-- de Wins del rebirth.
+	local speedTier            = (dataService:get(player, { "SpeedTier" }) or 0) :: number
+	local speedBoostMultiplier = SpeedBoostConfig.getMultiplier(speedTier)
+
+	-- Los multiplicadores se SUMAN entre sí (cada fuente aporta su "+X" sobre una
+	-- base de 1), y SOLO el rebirth multiplica el total: es la mecánica de prestigio.
+	--   total = (1 + Σ(mult-1)) × rebirth
+	local additiveBase = 1
+		+ (mountMultiplier - 1)
+		+ (playTimeMultiplier - 1)
+		+ (hatMultiplier - 1)
+		+ (trailMultiplier - 1)
+		+ (speedBoostMultiplier - 1)
+
+	local total = additiveBase * rebirthMultiplier
 
 	player:SetAttribute("TotalMultiplier", total)
-	debugPrint(`TotalMultiplier de {player.Name}: x{total} (mount x{mountMultiplier} * rebirth x{rebirthMultiplier} * playtime x{playTimeMultiplier} * hat x{hatMultiplier} * trail x{trailMultiplier})`)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier}] * rebirth x{rebirthMultiplier})`)
 end
 
 function SpeedService:updateTotalMultiplier(player: Player): ()
@@ -221,6 +238,12 @@ function SpeedService:_addSpeed(player: Player, amount: number): ()
 	local previousLevel = level
 
 	speedCurrency += amount
+
+	-- Estadística de por vida: acumula todo el Speed ganado, no baja al subir de
+	-- nivel (que consume SpeedCurrency) ni al rebirthear.
+	local totalEarned = (dataService:get(player, { "TotalSpeedEarned" }) or 0) :: number
+	dataService:set(player, { "TotalSpeedEarned" }, totalEarned + amount)
+
 	debugPrint(`SpeedCurrency actualizado para {player.Name}: speed={speedCurrency}, nivel={level}`)
 
 	local requiredSpeed = SpeedConfig.getRequiredSpeedForLevel(level)
@@ -237,6 +260,12 @@ function SpeedService:_addSpeed(player: Player, amount: number): ()
 		debugPrint(`Nuevo nivel guardado para {player.Name}: nivel={level}, speedRestante={speedCurrency}`)
 		self:_applyWalkSpeed(player, level)
 	end
+end
+
+-- Suma Speed crudo resolviendo los level-ups al instante (para compras de Robux:
+-- el jugador ve el efecto sin esperar al siguiente paquete de movimiento).
+function SpeedService:GrantSpeed(player: Player, amount: number): ()
+	self:_addSpeed(player, amount)
 end
 
 function SpeedService:_applyWalkSpeed(player: Player, level: number): ()

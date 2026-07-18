@@ -39,17 +39,22 @@
 
 ## TotalMultiplier
 - Atributo en el Player (replicado al cliente automáticamente)
-- = `mountMultiplier × rebirthWinsMultiplier × playTimeMultiplier × hatMultiplier × trailMultiplier`
-- Se recalcula en: carga de personaje, evolve exitoso, rebirth exitoso, equip de mount/hat/trail, tiers de playtime
-- El cliente lo lee con `player:GetAttribute("TotalMultiplier")`
+- Los multiplicadores se **SUMAN** entre sí; SOLO el rebirth multiplica el total:
+  `total = (1 + (mount-1) + (playtime-1) + (hat-1) + (trail-1) + (speedBoost-1)) × rebirthMultiplier`
+- Cada fuente aporta su "+X" sobre una base de 1; el rebirth es la mecánica de prestigio que
+  multiplica todo lo acumulado. **NO volver a multiplicar los factores entre sí** (rompe el balance)
+- Se calcula en UN solo sitio: `SpeedService:_updateTotalMultiplier`. Los clientes solo LEEN el
+  atributo (`player:GetAttribute("TotalMultiplier")`), nunca recalculan
+- Se recalcula en: carga de personaje, evolve, rebirth, equip de mount/hat/trail, tiers de playtime,
+  compra de Speed Tier
 - Speed ganado por paquete = `math.ceil(TotalMultiplier × EquippedSteps × treadmillMultiplier)`
-- Los steps y el treadmill NO están dentro de TotalMultiplier: se multiplican aparte en `SpeedService`
+- Los steps y el treadmill NO están dentro de TotalMultiplier: multiplican aparte en `SpeedService`
 
 ## Economía / balance
 
 ### Forma del juego
 - El recorrido es el rango de niveles **1..130** (nivel 130 = se pasa el stage 14), con **8 rebirths**
-- Duración objetivo ~9h. Hitos simulados: R1 a los 22 min, R8 a las 7.2h, nivel 130 a las 8.75h
+- Duración objetivo ~9h. Hitos simulados: R1 a los ~18 min, R8 a las 6.7h, nivel 130 a las 8.65h
   con las 20 mounts de World1 y los 12 steps buttons
 - Un "ciclo" = subir de nivel 1 al nivel que pide el siguiente rebirth. El rebirth SOLO resetea
   `Level` y `SpeedCurrency`: las **mounts PERSISTEN** (y con ellas su multiplicador), igual que
@@ -59,14 +64,14 @@
   es geometría)
 
 ### La curva de niveles es EXPONENCIAL a propósito
-- `req(L) = floor(8 × 1.230^(L-1))` en `SpeedConfig.getRequiredSpeedForLevel`
-- **No volver a una curva polinómica.** Dentro de un mismo ciclo el ingreso crece ×3.600.000
-  (mount 1→90 × steps 1→2000 × hat 1→5 × trail 1→4). La curva vieja (`5 × L^1.45`) solo crecía ×10
-  entre el nivel 50 y el 130: con un stack modesto el nivel 130 caía en 218 segundos, y con el stack
-  completo en 3×10⁻⁸ s
-- `SpeedConfig.RequiredSpeedGrowth` es la palanca de duración total (con mounts persistentes):
-  1.225 → ~7.1h, 1.230 → ~8.75h, 1.234 → ~10.2h. Es lo único que hay que tocar para reajustar
-  el ritmo global. Subir los Wins de los evolves NO es la palanca: las mounts son el motor del
+- `req(L) = floor(8 × 1.200^(L-1))` en `SpeedConfig.getRequiredSpeedForLevel`
+- **No volver a una curva polinómica.** El ingreso dentro de un ciclo sigue creciendo mucho aunque
+  los multiplicadores sumen (steps 1→2000 multiplican aparte, base aditiva 1→~100, rebirth 1→26). La
+  curva vieja (`5 × L^1.45`) solo crecía ×10 entre el nivel 50 y el 130 y quedaba pulverizada
+- `SpeedConfig.RequiredSpeedGrowth` es la palanca de duración total (modelo ADITIVO, mounts
+  persistentes): 1.19 → ~5.6h, 1.20 → ~8.65h, 1.205 → ~11.2h. Es lo único que hay que tocar para
+  reajustar el ritmo global. OJO: este valor es para el modelo aditivo; con el multiplicativo viejo
+  era 1.230. Subir los Wins de los evolves NO es la palanca: las mounts son el motor del
   ingreso y encarecerlas frena todo el juego (medido: 15-21h y sin completar la cadena)
 - Números grandes (~3.2e12 en el nivel 130) son normales: la UI ya formatea con K/M/B
 

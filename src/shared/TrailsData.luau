@@ -12,9 +12,22 @@ export type TrailData = {
 	Price: number,      -- costo en WinCurrency
 	Texture: string,    -- rbxassetid de la textura del trail (placeholder)
 	Color: Color3,      -- color de la cinta (para diferenciarlos ya, aunque la textura sea placeholder)
+	-- Degradado del icono en el menú. Si es nil, el cliente deriva uno claro→color→
+	-- oscuro desde Color. Solo el Rainbow lo define explícito (necesita el espectro).
+	Gradient: ColorSequence?,
 }
 
 local Placeholder = "rbxassetid://0"
+
+local RainbowGradient = ColorSequence.new({
+	ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
+	ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 150, 0)),
+	ColorSequenceKeypoint.new(0.34, Color3.fromRGB(255, 240, 0)),
+	ColorSequenceKeypoint.new(0.51, Color3.fromRGB(0, 210, 0)),
+	ColorSequenceKeypoint.new(0.68, Color3.fromRGB(0, 160, 255)),
+	ColorSequenceKeypoint.new(0.85, Color3.fromRGB(120, 60, 255)),
+	ColorSequenceKeypoint.new(1.00, Color3.fromRGB(220, 0, 255)),
+})
 
 local TrailsData = {
 
@@ -27,7 +40,7 @@ local TrailsData = {
 		{ Name = "Bubblegum", Multiplier = 2.00, Price = 40000,  Texture = Placeholder, Color = Color3.fromRGB(255, 105, 180) },
 		{ Name = "Void",      Multiplier = 2.50, Price = 120000, Texture = Placeholder, Color = Color3.fromRGB(124, 77, 255)  },
 		{ Name = "Frost",     Multiplier = 3.20, Price = 380000, Texture = Placeholder, Color = Color3.fromRGB(179, 229, 252) },
-		{ Name = "Rainbow",   Multiplier = 4.00, Price = 900000, Texture = Placeholder, Color = Color3.fromRGB(255, 255, 255) },
+		{ Name = "Rainbow",   Multiplier = 4.00, Price = 900000, Texture = Placeholder, Color = Color3.fromRGB(255, 255, 255), Gradient = RainbowGradient },
 	} :: { TrailData },
 
 }

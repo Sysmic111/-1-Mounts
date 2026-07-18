@@ -8,6 +8,7 @@ local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
 local HatsData       = require(ReplicatedStorage.Shared.HatsData)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
 local Utils          = require(ReplicatedStorage.Packages.Utils)
+local FormatNumber   = require(ReplicatedStorage.Packages.FormatNumber)
 local DataService    = require(ReplicatedStorage.Packages.DataService).client
 
 local player    = Players.LocalPlayer
@@ -35,17 +36,6 @@ local closeNotif   = notification:WaitForChild("Close")  :: ImageButton
 
 -- ── Utilidades ───────────────────────────────────────────────────────────────
 
-local function abbreviate(n: number): string
-	if n >= 1_000_000_000 then
-		return string.format("%.1fB", n / 1_000_000_000)
-	elseif n >= 1_000_000 then
-		return string.format("%.1fM", n / 1_000_000)
-	elseif n >= 1_000 then
-		return string.format("%.1fK", n / 1_000)
-	end
-	return tostring(n)
-end
-
 local function showAlert(title: string, description: string)
 	local titleLabel = notification:FindFirstChild("Title") :: TextLabel?
 	local descLabel  = notification:FindFirstChild("Description") :: TextLabel?
@@ -65,6 +55,35 @@ end
 closeNotif.MouseButton1Click:Connect(function()
 	MenuAnimations.close(notification)
 end)
+
+-- Imagen del icono de la card "Remove" (la misma de dentro del botón de cerrar).
+local REMOVE_IMAGE = "rbxassetid://113114987656737"
+
+-- Etiqueta del multiplicador (arriba de la card). Se crea por código porque el
+-- template de Studio no la trae. Idempotente al re-poblar.
+local function setMultiplierLabel(card: Instance, multiplier: number)
+	local label = card:FindFirstChild("MultiplierLabel") :: TextLabel?
+	if not label then
+		label = Instance.new("TextLabel")
+		label.Name                   = "MultiplierLabel"
+		label.AnchorPoint            = Vector2.new(0.5, 0.5)
+		label.Position               = UDim2.fromScale(0.5, 0.1)
+		label.Size                   = UDim2.fromScale(0.9, 0.13)
+		label.BackgroundTransparency = 1
+		label.TextScaled             = true
+		label.TextColor3             = Color3.fromRGB(255, 236, 120)
+		label.FontFace               = Font.fromName("ComicNeueAngular", Enum.FontWeight.Bold)
+		label.ZIndex                 = 6
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color     = Color3.fromRGB(0, 0, 0)
+		stroke.Thickness = 2
+		stroke.Parent    = label
+
+		label.Parent = card
+	end
+	label.Text = string.format("x%.2f", multiplier)
+end
 
 -- ── Grid de hats ─────────────────────────────────────────────────────────────
 
@@ -86,6 +105,8 @@ local function buildCard(hat: HatsData.HatData, owned: boolean, equipped: boolea
 
 	local textName = card:FindFirstChild("TextName") :: TextLabel?
 	if textName then textName.Text = hat.Name end
+
+	setMultiplierLabel(card, hat.Multiplier)
 
 	-- Usamos el ViewportFrame para el preview 3D → ocultamos Image1
 	local image1 = card:FindFirstChild("Image1") :: ImageLabel?
@@ -111,7 +132,7 @@ local function buildCard(hat: HatsData.HatData, owned: boolean, equipped: boolea
 	if unlock then
 		unlock.Visible = not owned
 		local quantity = unlock:FindFirstChild("Quantity") :: TextLabel?
-		if quantity then quantity.Text = abbreviate(hat.Price) end
+		if quantity then quantity.Text = FormatNumber:formatNumberCoins(hat.Price) end
 	end
 
 	cardNumbered.LayoutOrder = order
@@ -137,9 +158,13 @@ local function buildRemoveCard(equippedHat: string, order: number)
 	local textName = card:FindFirstChild("TextName") :: TextLabel?
 	if textName then textName.Text = "Remove" end
 
-	-- Sin ícono ni preview 3D
+	-- Icono: la misma imagen del botón de cerrar del menú
 	local image1 = card:FindFirstChild("Image1") :: ImageLabel?
-	if image1 then image1.Visible = false end
+	if image1 then
+		image1.Visible = true
+		image1.Image = REMOVE_IMAGE
+		image1.ImageColor3 = Color3.new(1, 1, 1)
+	end
 	local viewport = card:FindFirstChild("ViewportFrame") :: ViewportFrame?
 	if viewport then viewport.Visible = false end
 

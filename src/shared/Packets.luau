@@ -45,5 +45,6 @@ return {
 	ClaimDailyResult  = Packet("ClaimDailyResult",   Packet.Boolean8, Packet.NumberU8, Packet.String),
 	ActivateStep      = Packet("ActivateStep",  Packet.NumberU16),
 	StepActivated     = Packet("StepActivated", Packet.NumberU16),
+	StepActivateFailed = Packet("StepActivateFailed", Packet.String),
 	WallHit           = Packet("WallHit"),
 }

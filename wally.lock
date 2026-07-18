@@ -3,6 +3,11 @@
 registry = "test"
 
 [[package]]
+name = "1foreverhd/topbarplus"
+version = "3.4.0"
+dependencies = []
+
+[[package]]
 name = "evaera/promise"
 version = "4.0.0"
 dependencies = []
@@ -35,7 +40,7 @@ dependencies = []
 [[package]]
 name = "roblox/mounts"
 version = "0.1.0"
-dependencies = [["DataService", "leifstout/dataservice@1.0.0"]]
+dependencies = [["DataService", "leifstout/dataservice@1.0.0"], ["TopbarPlus", "1foreverhd/topbarplus@3.4.0"]]
 
 [[package]]
 name = "sleitnick/signal"

@@ -12,9 +12,10 @@ type DataServiceServer = {
 }
 
 local StepsService = {
-	_dataService      = nil :: DataServiceServer?,
-	_stepsMap         = {} :: { [number]: number }, -- stepsIncrement -> winsQuantity
-	_lastActivateTime = {} :: { [Player]: number },
+	_dataService       = nil :: DataServiceServer?,
+	_stepsMap          = {} :: { [number]: number }, -- stepsIncrement -> winsQuantity
+	_sortedIncrements  = {} :: { number },           -- increments ascendentes
+	_lastActivateTime  = {} :: { [Player]: number },
 }
 
 local stepsButtonsFolder: Folder
@@ -35,6 +36,12 @@ function StepsService:init(dataService: DataServiceServer): ()
 	self._dataService = dataService
 	stepsButtonsFolder = Workspace:WaitForChild("StepsButtons") :: Folder
 	buildStepsMap(self._stepsMap)
+
+	-- Lista ordenada de increments, para validar que no se salten niveles al comprar.
+	for inc in self._stepsMap do
+		table.insert(self._sortedIncrements, inc)
+	end
+	table.sort(self._sortedIncrements)
 
 	local function setupPlayer(player: Player)
 		task.spawn(function()
@@ -90,6 +97,16 @@ function StepsService:_handleActivate(player: Player, stepsIncrement: number): (
 	local flatKey = "StepUnlocked_" .. tostring(stepsIncrement)
 
 	if ds:get(player, { flatKey }) ~= true then
+		-- No permitir saltarse niveles: todos los steps inferiores deben estar
+		-- comprados antes de comprar este.
+		for _, inc in self._sortedIncrements do
+			if inc >= stepsIncrement then break end
+			if ds:get(player, { "StepUnlocked_" .. tostring(inc) }) ~= true then
+				Packets.StepActivateFailed:FireClient(player, "Buy the previous steps first!")
+				return
+			end
+		end
+
 		local winCurrency = (ds:get(player, { "WinCurrency" }) or 0) :: number
 		if winCurrency < winsQuantity then return end
 		ds:set(player, { "WinCurrency" }, winCurrency - winsQuantity)

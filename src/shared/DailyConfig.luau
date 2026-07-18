@@ -8,6 +8,7 @@
 -- el siguiente claim.
 
 local MountsConfig = require(game.ReplicatedStorage.Shared.MountsConfig)
+local FormatNumber = require(game.ReplicatedStorage.Packages.FormatNumber)
 
 export type RewardKind = "Wins" | "Speed" | "Mount"
 
@@ -91,27 +92,8 @@ end
 
 -- ── Formato ──────────────────────────────────────────────────────────────────
 
-local UNITS = {
-	{ 1e15, "Q" },
-	{ 1e12, "T" },
-	{ 1e9,  "B" },
-	{ 1e6,  "M" },
-	{ 1e3,  "K" },
-}
-
 function DailyConfig.abbreviate(n: number): string
-	for _, unit in UNITS do
-		local threshold = unit[1] :: number
-		local suffix    = unit[2] :: string
-		if n >= threshold then
-			local value = n / threshold
-			if value % 1 == 0 then
-				return string.format("%d%s", value, suffix)
-			end
-			return string.format("%.1f%s", value, suffix)
-		end
-	end
-	return tostring(n)
+	return FormatNumber:formatNumberCoins(n)
 end
 
 function DailyConfig.getRewardLabel(day: number): string

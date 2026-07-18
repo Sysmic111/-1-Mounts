@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Packets      = require(ReplicatedStorage.Shared.Packets)
 local DataService  = require(ReplicatedStorage.Packages.DataService).client
 local FormatNumber = require(ReplicatedStorage.Packages.FormatNumber)
+local AlertsModule = require(ReplicatedStorage.Packages.AlertsModule)
 
 local player = Players.LocalPlayer
 
@@ -150,4 +151,14 @@ end)
 Packets.StepActivated.OnClientEvent:Connect(function(stepsIncrement: number)
 	print("[Steps] StepActivated recibido:", stepsIncrement)
 	refreshColors()
+end)
+
+-- Intentar comprar un step saltándose los anteriores. Anti-spam: los botones se
+-- pisan por contacto y el server puede reenviar el fallo varias veces seguidas.
+local lastErrorTime = 0
+Packets.StepActivateFailed.OnClientEvent:Connect(function(message: string)
+	local now = os.clock()
+	if now - lastErrorTime < 2 then return end
+	lastErrorTime = now
+	AlertsModule.ShowAlertGui("Error", message)
 end)

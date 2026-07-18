@@ -6,6 +6,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local MenuManager       = require(ReplicatedStorage.Shared.MenuManager)
 local StarterPackConfig = require(ReplicatedStorage.Shared.StarterPackConfig)
+local FormatNumber      = require(ReplicatedStorage.Packages.FormatNumber)
 local DataService       = require(ReplicatedStorage.Packages.DataService).client
 
 local player    = Players.LocalPlayer
@@ -23,22 +24,6 @@ local scrolling   = menuStarter:WaitForChild("ScrollingFrame")                 :
 local buyButton   = menuStarter:WaitForChild("Buy")                            :: ImageButton
 
 -- ── Utilidades ───────────────────────────────────────────────────────────────
-
-local function abbreviate(n: number): string
-	local units = { { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } }
-	for _, unit in units do
-		local threshold = unit[1] :: number
-		local suffix    = unit[2] :: string
-		if n >= threshold then
-			local value = n / threshold
-			if value % 1 == 0 then
-				return string.format("%d%s", value, suffix)
-			end
-			return string.format("%.1f%s", value, suffix)
-		end
-	end
-	return tostring(n)
-end
 
 -- ── Cards ────────────────────────────────────────────────────────────────────
 
@@ -64,9 +49,9 @@ end
 local function applyRewardTexts()
 	forEachCard(function(_card, icon, rewardText, _claimed)
 		if icon.Image == StarterPackConfig.WinsIcon then
-			rewardText.Text = "x" .. abbreviate(StarterPackConfig.Wins) .. " Wins"
+			rewardText.Text = "x" .. FormatNumber:formatNumberCoins(StarterPackConfig.Wins) .. " Wins"
 		elseif icon.Image == StarterPackConfig.SpeedIcon then
-			rewardText.Text = "x" .. abbreviate(StarterPackConfig.Speed) .. " Speed"
+			rewardText.Text = "x" .. FormatNumber:formatNumberCoins(StarterPackConfig.Speed) .. " Speed"
 		end
 	end)
 end

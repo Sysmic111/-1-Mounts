@@ -20,10 +20,10 @@ local HatsData = {
 		{ Name = "Red Hat",       Multiplier = 1.10, Price = 200,    Image = "rbxassetid://0" , Scale = 4},
 		{ Name = "Mushroom Hat",  Multiplier = 1.25, Price = 800,    Image = "rbxassetid://0" , Scale = 4},
 		{ Name = "Chef",          Multiplier = 1.45, Price = 3000,   Image = "rbxassetid://0" , Scale = 1.3},
-		{ Name = "Winter Beanie", Multiplier = 1.70, Price = 10000,  Image = "rbxassetid://0" },
-		{ Name = "Floppy Sun Hat",Multiplier = 2.00, Price = 32000,  Image = "rbxassetid://0" },
-		{ Name = "Art",           Multiplier = 2.50, Price = 100000, Image = "rbxassetid://0" },
-		{ Name = "Dev",           Multiplier = 5.00, Price = 320000, Image = "rbxassetid://0" },
+		{ Name = "Winter Beanie", Multiplier = 1.70, Price = 10000,  Image = "rbxassetid://0" , Scale = 4},
+		{ Name = "Floppy Sun Hat",Multiplier = 2.00, Price = 32000,  Image = "rbxassetid://0" , Scale = 4},
+		{ Name = "Art",           Multiplier = 2.50, Price = 100000, Image = "rbxassetid://0" , Scale = 4},
+		{ Name = "Dev",           Multiplier = 5.00, Price = 320000, Image = "rbxassetid://0" , Scale = 1.2},
 	} :: { HatData },
 
 }

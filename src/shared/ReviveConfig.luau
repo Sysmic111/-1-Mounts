@@ -9,6 +9,12 @@
 local ReviveConfig = {
 	InfiniteRevivesProductId = 3606125748,
 	ReviveOnceProductId      = 3610486956,
+
+	-- Posición de retorno al último stage. La altura final también incluye la
+	-- distancia real entre el HRP y la parte más baja de la montura.
+	TeleportBackOffset        = 10,
+	MinimumTeleportHeight     = 5,
+	GroundClearance           = 2,
 }
 
 return ReviveConfig

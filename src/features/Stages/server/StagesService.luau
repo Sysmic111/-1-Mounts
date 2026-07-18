@@ -27,6 +27,27 @@ local function getStageNumber(stageName: string): number
 	return tonumber(stageName:match("%d+")) or 0
 end
 
+-- Distancia desde el HRP hasta el punto más bajo del personaje, medida sobre el
+-- eje vertical local del HRP. Considerar cada BasePart (incluido el rider) evita
+-- que las monturas altas o con el pivote descentrado aparezcan dentro del suelo.
+local function getRootToBottomDistance(character: Model, hrp: BasePart): number
+	local lowestY = 0
+
+	for _, descendant in character:GetDescendants() do
+		if not descendant:IsA("BasePart") then continue end
+
+		local part = descendant :: BasePart
+		local relative = hrp.CFrame:ToObjectSpace(part.CFrame)
+		local halfHeight = math.abs(relative.XVector.Y) * part.Size.X * 0.5
+			+ math.abs(relative.YVector.Y) * part.Size.Y * 0.5
+			+ math.abs(relative.ZVector.Y) * part.Size.Z * 0.5
+
+		lowestY = math.min(lowestY, relative.Position.Y - halfHeight)
+	end
+
+	return -lowestY
+end
+
 function StagesService:init(dataService: DataServiceServer, robuxService: RobuxServiceLike): ()
 	self._dataService = dataService
 
@@ -143,7 +164,14 @@ function StagesService:_teleportToLastStage(player: Player): ()
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then return end
 
-	hrp.CFrame = pp.CFrame * CFrame.new(0, 5, -10)
+	local rootToBottom = getRootToBottomDistance(character, hrp)
+	local teleportHeight = math.max(
+		ReviveConfig.MinimumTeleportHeight,
+		pp.Size.Y * 0.5 + rootToBottom + ReviveConfig.GroundClearance
+	)
+
+	hrp.CFrame = pp.CFrame
+		* CFrame.new(0, teleportHeight, -ReviveConfig.TeleportBackOffset)
 end
 
 -- Revive gratis vía RequestRevive: SOLO para dueños de Infinite Revives. Sin el

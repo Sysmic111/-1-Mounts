@@ -2,6 +2,7 @@
 
 local TrailsData = require(game.ReplicatedStorage.Shared.TrailsData)
 local Packets    = require(game.ReplicatedStorage.Shared.Packets)
+local FormatNumber = require(game.ReplicatedStorage.Packages.FormatNumber)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -82,7 +83,9 @@ function TrailsService:_handleBuy(player: Player, trailName: string): ()
 
 	local wins = (dataService:get(player, { "WinCurrency" }) or 0) :: number
 	if wins < trailData.Price then
-		Packets.BuyTrailResult:FireClient(player, false, "You need " .. trailData.Price .. " Wins (you have " .. wins .. ").")
+		Packets.BuyTrailResult:FireClient(player, false,
+			"You need " .. FormatNumber:formatNumberCoins(trailData.Price)
+			.. " Wins (you have " .. FormatNumber:formatNumberCoins(wins) .. ").")
 		return
 	end
 

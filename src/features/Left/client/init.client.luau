@@ -10,6 +10,7 @@ local NotifyBadge     = require(ReplicatedStorage.Shared.NotifyBadge)
 local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
 local RebirthConfig   = require(ReplicatedStorage.Shared.RebirthConfig)
 local DataService     = require(ReplicatedStorage.Packages.DataService).client
+local FormatNumber    = require(ReplicatedStorage.Packages.FormatNumber)
 local Packets         = require(ReplicatedStorage.Shared.Packets)
 local AlertsModule    = require(ReplicatedStorage.Packages.AlertsModule)
 
@@ -125,32 +126,33 @@ end)
 
 -- ── Menú Evolve ──────────────────────────────────────────────────────────────
 
+local function getLatestOwnedWorld1Index(ownedMounts: { [string]: boolean }): number?
+	for i = #MountsConfig.World1, 1, -1 do
+		if ownedMounts[MountsConfig.World1[i].Name] then
+			return i
+		end
+	end
+	return nil
+end
+
 local function populateEvolveMenu()
 	task.spawn(function()
 		DataService:waitForData()
 
-		local equippedName = DataService:get({ "EquippedMount" }) :: string?
+		local ownedMounts  = (DataService:get({ "Mounts" }) or {}) :: { [string]: boolean }
 		local playerLevel  = (DataService:get({ "Level" }) or 1) :: number
 		local playerWins   = (DataService:get({ "WinCurrency" }) or 0) :: number
 
-		-- Encontrar mount actual y siguiente en la progresión
-		local currentMount = nil
-		local nextMount    = nil
-		for i, mount in MountsConfig.World1 do
-			if mount.Name == equippedName then
-				currentMount = mount
-				nextMount    = MountsConfig.World1[i + 1]
-				break
-			end
-		end
-
-		if not currentMount then return end
+		-- Evolve siempre continúa desde la montura base más avanzada que posee el
+		-- jugador, aunque tenga equipada una inferior o una montura Premium/Daily.
+		local currentIndex = getLatestOwnedWorld1Index(ownedMounts)
+		if not currentIndex then return end
+		local currentMount = MountsConfig.World1[currentIndex]
+		local nextMount    = MountsConfig.World1[currentIndex + 1]
 
 		-- Multiplicadores
 		actualQuantity.Text = "x" .. tostring(currentMount.Multiplier)
 		nextQuantity.Text   = nextMount and ("x" .. tostring(nextMount.Multiplier)) or "MAX"
-
-		local ownedMounts = (DataService:get({ "Mounts" }) or {}) :: { [string]: boolean }
 
 		-- Barras de progreso
 		if nextMount and ownedMounts[nextMount.Name] then
@@ -168,7 +170,8 @@ local function populateEvolveMenu()
 			TweenService:Create(winsFill,   FILL_TWEEN, { Size = UDim2.new(winsRatio,  0, 1, 0) }):Play()
 			TweenService:Create(levelsFill, FILL_TWEEN, { Size = UDim2.new(levelRatio, 0, 1, 0) }):Play()
 
-			winsTitle.Text   = playerWins  .. "/" .. reqs.Wins
+			winsTitle.Text   = FormatNumber:formatNumberCoins(playerWins)
+				.. "/" .. FormatNumber:formatNumberCoins(reqs.Wins)
 			levelsTitle.Text = playerLevel .. "/" .. reqs.Level
 		else
 			-- Sin siguiente montura o sin requisitos
@@ -192,7 +195,9 @@ Packets.EvolveMountResult.OnClientEvent:Connect(function(success: boolean, messa
 	if success then
 		MenuManager.close(menuEvolve)
 	else
-		showAlert("Cannot Evolve", message)
+		-- Fallo de evolve (p. ej. falta nivel): error alert rojo en vez del menú
+		-- Notification.
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 
@@ -253,26 +258,16 @@ end)
 -- Condiciones espejo de las del servidor. Si cambian allí, hay que cambiarlas aquí:
 -- un badge que promete un evolve que el servidor luego rechaza es peor que no tenerlo.
 
--- MountsService:_handleEvolve: la montura equipada debe estar en World1, tener
--- siguiente, y cumplir Level Y Wins — o poseer ya la siguiente (las mounts
--- persisten tras el rebirth y re-equipar es gratis).
+-- MountsService:_handleEvolve: parte de la montura World1 más avanzada que el
+-- jugador posee y exige Level Y Wins para la siguiente.
 local function canEvolve(): boolean
-	local equippedName = DataService:get({ "EquippedMount" }) :: string?
-	if not equippedName then return false end
-
-	local currentIndex: number? = nil
-	for i, mount in MountsConfig.World1 do
-		if mount.Name == equippedName then
-			currentIndex = i
-			break
-		end
-	end
+	local ownedMounts = (DataService:get({ "Mounts" }) or {}) :: { [string]: boolean }
+	local currentIndex = getLatestOwnedWorld1Index(ownedMounts)
 	if not currentIndex then return false end
 
 	local nextMount = MountsConfig.World1[currentIndex + 1]
 	if not nextMount then return false end
 
-	local ownedMounts = (DataService:get({ "Mounts" }) or {}) :: { [string]: boolean }
 	if ownedMounts[nextMount.Name] then return true end
 
 	local reqs = nextMount.EvolveRequirements
@@ -382,7 +377,9 @@ local function buildMountGrid(mountList: { MountsConfig.MountData }, ownedMounts
 		local equippedFrame = ct:FindFirstChild("Equipped") :: Frame
 		equippedFrame.Visible = (mount.Name == equippedName)
 
-		ct.MouseButton1Click:Connect(function()
+		-- IndexTemplate es la tarjeta exterior completa. Escuchar su Activated evita
+		-- depender del tamaño/ZIndex/Active del CardTemplate interior en Studio.
+		card.Activated:Connect(function()
 			if not owned then return end
 			Packets.EquipMount:Fire(mount.Name)
 		end)

@@ -2,6 +2,7 @@
 
 local HatsData = require(game.ReplicatedStorage.Shared.HatsData)
 local Packets  = require(game.ReplicatedStorage.Shared.Packets)
+local FormatNumber = require(game.ReplicatedStorage.Packages.FormatNumber)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -82,7 +83,9 @@ function HatsService:_handleBuy(player: Player, hatName: string): ()
 
 	local wins = (dataService:get(player, { "WinCurrency" }) or 0) :: number
 	if wins < hatData.Price then
-		Packets.BuyHatResult:FireClient(player, false, "You need " .. hatData.Price .. " Wins (you have " .. wins .. ").")
+		Packets.BuyHatResult:FireClient(player, false,
+			"You need " .. FormatNumber:formatNumberCoins(hatData.Price)
+			.. " Wins (you have " .. FormatNumber:formatNumberCoins(wins) .. ").")
 		return
 	end
 

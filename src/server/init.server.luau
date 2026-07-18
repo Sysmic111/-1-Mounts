@@ -22,6 +22,8 @@ local TrailsService    = require(ServerScriptService.Trails.TrailsService)
 local DailyService     = require(ServerScriptService.Daily.DailyService)
 local EconomyService   = require(ServerScriptService.Economy.EconomyService)
 local StarterPackService = require(ServerScriptService.StarterPack.StarterPackService)
+local SpeedBoostService = require(ServerScriptService.SpeedBoost.SpeedBoostService)
+local SpeedBuyService   = require(ServerScriptService.SpeedBuy.SpeedBuyService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 
 DataService:init({
@@ -52,6 +54,11 @@ DataService:init({
 		DailyLastClaimDate = 0,
 		StarterPackBought  = false,
 		InfiniteRevives    = false,
+		SpeedTier          = 0,
+		-- Estadísticas de por vida (para leaderboard): acumulan todo lo ganado,
+		-- nunca bajan al gastar Wins ni al rebirthear.
+		TotalSpeedEarned   = 0,
+		TotalWinsEarned    = 0,
 	},
 })
 
@@ -80,6 +87,8 @@ SpeedService:setRobuxService(RobuxService)
 StepsService:init(DataService)
 PremiumMountsService:init(DataService, RobuxService)
 StarterPackService:init(DataService, RobuxService)
+SpeedBoostService:init(DataService, RobuxService, SpeedService)
+SpeedBuyService:init(DataService, RobuxService, SpeedService)
 MorphService.setDataService(DataService)
 HatsService:init(DataService)
 HatsService:setSpeedService(SpeedService)
