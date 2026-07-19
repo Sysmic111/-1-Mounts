@@ -7,6 +7,7 @@ local SpeedConfig      = require(game.ReplicatedStorage.Shared.SpeedConfig)
 local RebirthConfig    = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local SpeedBoostConfig = require(game.ReplicatedStorage.Shared.SpeedBoostConfig)
 local Packets          = require(game.ReplicatedStorage.Shared.Packets)
+local FunnelService    = require(game.ServerScriptService.Analytics.FunnelService)
 
 -- Returns the highest treadmill Multiplier the player is allowed to use,
 -- considering both rebirth-gated and Robux-gated treadmills.
@@ -265,6 +266,7 @@ function SpeedService:_addSpeed(player: Player, amount: number): ()
 		debugPrint(`Nuevo nivel guardado para {player.Name}: nivel={level}, speedRestante={speedCurrency}`)
 		self:_applyWalkSpeed(player, level)
 	end
+	FunnelService:onProgressChanged(player)
 end
 
 -- Suma Speed crudo resolviendo los level-ups al instante (para compras de Robux:

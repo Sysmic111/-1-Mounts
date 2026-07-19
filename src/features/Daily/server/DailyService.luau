@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DailyConfig = require(ReplicatedStorage.Shared.DailyConfig)
 local Packets     = require(ReplicatedStorage.Shared.Packets)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -53,6 +54,7 @@ function DailyService:_handleClaim(player: Player): ()
 	-- pierde ese premio pero nunca puede reclamar dos veces el mismo día.
 	ds:set(player, { "DailyClaimedDay" }, day)
 	ds:set(player, { "DailyLastClaimDate" }, today)
+	FunnelService:onDailyClaimed(player, day)
 
 	self:_grantReward(player, reward)
 

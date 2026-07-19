@@ -47,4 +47,6 @@ return {
 	StepActivated     = Packet("StepActivated", Packet.NumberU16),
 	StepActivateFailed = Packet("StepActivateFailed", Packet.String),
 	WallHit           = Packet("WallHit"),
+	AnalyticsCheckoutAction = Packet("AnalyticsCheckoutAction", Packet.String, Packet.NumberU32, Packet.String, Packet.String),
+	AnalyticsCheckoutSession = Packet("AnalyticsCheckoutSession", Packet.NumberU32, Packet.String, Packet.String),
 }

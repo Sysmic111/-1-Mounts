@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 
 local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local Packets       = require(game.ReplicatedStorage.Shared.Packets)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -55,12 +56,15 @@ function RebirthService:_handleRebirth(player: Player): ()
 		return
 	end
 
+	FunnelService:onRebirthCompleted(player, rebirthCount + 1)
+
 	-- Aplicar rebirth. SOLO se resetean Level y SpeedCurrency: las mounts (todas,
 	-- incluidas las Premium y las del Daily) se conservan, igual que WinCurrency,
 	-- hats, trails y steps. El jugador sigue montado en su montura equipada.
 	dataService:set(player, { "Rebirth" },       rebirthCount + 1)
 	dataService:set(player, { "Level" },          1)
 	dataService:set(player, { "SpeedCurrency" },  0)
+	FunnelService:onRebirthStateChanged(player)
 
 	-- Teleportar al spawn
 	local character = player.Character

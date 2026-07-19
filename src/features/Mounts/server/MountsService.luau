@@ -6,6 +6,7 @@ local MountsConfig = require(game.ReplicatedStorage.Shared.MountsConfig)
 local MorphService = require(script.Parent.MorphService)
 local Packets     = require(game.ReplicatedStorage.Shared.Packets)
 local FormatNumber = require(game.ReplicatedStorage.Packages.FormatNumber)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -143,6 +144,7 @@ function MountsService:_handleEvolve(player: Player): ()
 			self._speedService:updateTotalMultiplier(player)
 		end
 		Packets.EvolveMountResult:FireClient(player, true, "")
+		FunnelService:onMountUnlocked(player, nextMount.Name)
 		return
 	end
 
@@ -172,6 +174,7 @@ function MountsService:_handleEvolve(player: Player): ()
 	dataService:set(player, { "Mounts", nextMount.Name }, true)
 	dataService:set(player, { "EquippedMount" }, nextMount.Name)
 	dataService:set(player, { "WinCurrency" }, playerWins - reqs.Wins)
+	FunnelService:onMountUnlocked(player, nextMount.Name)
 	MorphService.MorphPlayer(player, nextMount.Name)
 	if self._speedService then
 		self._speedService:updateTotalMultiplier(player)

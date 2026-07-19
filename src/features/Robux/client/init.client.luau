@@ -2,12 +2,12 @@
 
 local Players            = game:GetService("Players")
 local RunService         = game:GetService("RunService")
-local MarketplaceService = game:GetService("MarketplaceService")
 local CollectionService  = game:GetService("CollectionService")
 local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 
 local DataService = require(ReplicatedStorage.Packages.DataService).client
 local RobuxConfig = require(ReplicatedStorage.Shared.RobuxConfig)
+local CheckoutAnalytics = require(ReplicatedStorage.Shared.CheckoutAnalytics)
 
 local player = Players.LocalPlayer
 
@@ -50,6 +50,6 @@ RunService.Heartbeat:Connect(function()
 		if (now - (lastPromptTime[tier] or 0)) < PROMPT_COOLDOWN then continue end
 
 		lastPromptTime[tier] = now
-		MarketplaceService:PromptProductPurchase(player, tierConfig.ProductId)
+		CheckoutAnalytics.prompt(tierConfig.ProductId, tier)
 	end
 end)

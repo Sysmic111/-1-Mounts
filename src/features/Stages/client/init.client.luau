@@ -3,12 +3,12 @@
 local Players            = game:GetService("Players")
 local TweenService       = game:GetService("TweenService")
 local ReplicatedStorage  = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
 
 local Packets      = require(ReplicatedStorage.Shared.Packets)
 local MenuManager  = require(ReplicatedStorage.Shared.MenuManager)
 local ReviveConfig = require(ReplicatedStorage.Shared.ReviveConfig)
 local DataService  = require(ReplicatedStorage.Packages.DataService).client
+local CheckoutAnalytics = require(ReplicatedStorage.Shared.CheckoutAnalytics)
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -68,6 +68,9 @@ local function openRevive()
 	local owner = ownsInfiniteRevives()
 	reviveCostIcon.Visible = not owner
 	reviveCostLabel.Text   = owner and "Revive" or "9"
+	if not owner then
+		CheckoutAnalytics.show(ReviveConfig.ReviveOnceProductId, "ReviveOnce")
+	end
 
 	MenuManager.open(reviveFrame, { onClose = cleanup })
 
@@ -89,7 +92,7 @@ local function openRevive()
 			closeRevive()
 		else
 			-- Revive por uso: el teleport lo hace el servidor al procesar el recibo.
-			MarketplaceService:PromptProductPurchase(player, ReviveConfig.ReviveOnceProductId)
+			CheckoutAnalytics.prompt(ReviveConfig.ReviveOnceProductId, "ReviveOnce")
 		end
 	end)
 
@@ -108,11 +111,14 @@ task.spawn(function()
 	-- Oferta única: al comprarse, el botón desaparece (la UIListLayout recoloca).
 	local function refresh()
 		button.Visible = not ownsInfiniteRevives()
+		if button.Visible then
+			CheckoutAnalytics.show(ReviveConfig.InfiniteRevivesProductId, "InfiniteRevives")
+		end
 	end
 
 	button.Activated:Connect(function()
 		if ownsInfiniteRevives() then return end
-		MarketplaceService:PromptProductPurchase(player, ReviveConfig.InfiniteRevivesProductId)
+		CheckoutAnalytics.prompt(ReviveConfig.InfiniteRevivesProductId, "InfiniteRevives")
 	end)
 
 	DataService:waitForData()

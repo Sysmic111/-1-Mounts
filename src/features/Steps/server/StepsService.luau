@@ -3,6 +3,7 @@ local Players   = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Packets = require(game.ReplicatedStorage.Shared.Packets)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -96,7 +97,8 @@ function StepsService:_handleActivate(player: Player, stepsIncrement: number): (
 
 	local flatKey = "StepUnlocked_" .. tostring(stepsIncrement)
 
-	if ds:get(player, { flatKey }) ~= true then
+	local newlyUnlocked = ds:get(player, { flatKey }) ~= true
+	if newlyUnlocked then
 		-- No permitir saltarse niveles: todos los steps inferiores deben estar
 		-- comprados antes de comprar este.
 		for _, inc in self._sortedIncrements do
@@ -111,6 +113,7 @@ function StepsService:_handleActivate(player: Player, stepsIncrement: number): (
 		if winCurrency < winsQuantity then return end
 		ds:set(player, { "WinCurrency" }, winCurrency - winsQuantity)
 		ds:set(player, { flatKey }, true)
+		FunnelService:onStepUnlocked(player, stepsIncrement)
 	end
 
 	ds:set(player, { "StepsEquipped" }, stepsIncrement)

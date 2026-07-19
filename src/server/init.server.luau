@@ -29,6 +29,7 @@ local LeaderboardService = require(ServerScriptService.Leaderboard.LeaderboardSe
 local BadgesService     = require(ServerScriptService.Badges.BadgesService)
 local FriendsBoostService = require(ServerScriptService.FriendsBoost.FriendsBoostService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
+local FunnelService    = require(ServerScriptService.Analytics.FunnelService)
 
 DataService:init({
 	--useMock = true,
@@ -63,6 +64,14 @@ DataService:init({
 		-- nunca bajan al gastar Wins ni al rebirthear.
 		TotalSpeedEarned   = 0,
 		TotalWinsEarned    = 0,
+		AnalyticsCohort           = "",
+		AnalyticsSchemaVersion    = 0,
+		AnalyticsOnboardingStep   = 0,
+		AnalyticsBackfillVersion  = 0,
+		AnalyticsRebirthCycle     = 0,
+		AnalyticsRebirthCycleStep = 0,
+		AnalyticsDailyLoggedDay    = 0,
+		HighestStageReached       = 1,
 	},
 })
 
@@ -70,6 +79,8 @@ DataService:init({
 -- WinsService y StepsService los leen una única vez en su init y los cachean, así
 -- que esto tiene que ir antes que ellos o se quedarían con los valores viejos.
 EconomyService:seedWorkspace()
+
+FunnelService:init(DataService)
 
 MountsService:init(DataService)
 SpeedService:init(DataService)

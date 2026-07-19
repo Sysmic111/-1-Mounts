@@ -2,12 +2,12 @@
 
 local Players            = game:GetService("Players")
 local ReplicatedStorage  = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
 
 local MenuManager       = require(ReplicatedStorage.Shared.MenuManager)
 local StarterPackConfig = require(ReplicatedStorage.Shared.StarterPackConfig)
 local FormatNumber      = require(ReplicatedStorage.Packages.FormatNumber)
 local DataService       = require(ReplicatedStorage.Packages.DataService).client
+local CheckoutAnalytics = require(ReplicatedStorage.Shared.CheckoutAnalytics)
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -81,7 +81,12 @@ end
 
 btnStarter.MouseButton1Click:Connect(function()
 	if isBought() then return end
-	MenuManager.toggle(menuStarter, { onOpen = applyRewardTexts })
+	MenuManager.toggle(menuStarter, {
+		onOpen = function()
+			applyRewardTexts()
+			CheckoutAnalytics.show(StarterPackConfig.ProductId, "StarterPack")
+		end,
+	})
 end)
 
 closeStarter.MouseButton1Click:Connect(function()
@@ -92,7 +97,7 @@ buyButton.MouseButton1Click:Connect(function()
 	-- El cliente solo lanza el prompt; quien concede es StarterPackService desde
 	-- ProcessReceipt. Nunca se confía en el cliente para dar las recompensas.
 	if isBought() then return end
-	MarketplaceService:PromptProductPurchase(player, StarterPackConfig.ProductId)
+	CheckoutAnalytics.prompt(StarterPackConfig.ProductId, "StarterPack")
 end)
 
 -- ── Init ─────────────────────────────────────────────────────────────────────

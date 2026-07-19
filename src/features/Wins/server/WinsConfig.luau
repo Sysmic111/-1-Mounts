@@ -1,5 +1,7 @@
 --!strict
 
+local AnalyticsConfig = require(game.ReplicatedStorage.Shared.AnalyticsConfig)
+
 local WinsConfig = {
 	Debug = true,
 
@@ -10,7 +12,7 @@ local WinsConfig = {
 	-- Botones premium: atributo Premium=true → se cobra un Developer Product
 	-- (consumible) cada vez que se quiere reclamar el botón.
 	PremiumAttribute = "Premium",
-	PremiumProductId = 3606256299,
+	PremiumProductId = AnalyticsConfig.StageWinsProductId,
 	PremiumPromptCooldownSeconds = 2, -- evita spam del prompt al estar parado encima
 
 	TouchDebounceSeconds = 1,

@@ -8,6 +8,7 @@ local Workspace = game:GetService("Workspace")
 local WinsConfig    = require(script.Parent.WinsConfig)
 local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local FormatNumber  = require(game.ReplicatedStorage.Packages.FormatNumber)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	hasProfile: (self: DataServiceServer, player: Player) -> boolean,
@@ -177,6 +178,7 @@ function WinsService:_creditWins(player: Player, winsQuantity: number): ()
 	-- Estadística de por vida: acumula todo lo ganado, no baja al gastar ni rebirthear.
 	local totalEarned = (dataService:get(player, { "TotalWinsEarned" }) or 0) :: number
 	dataService:set(player, { "TotalWinsEarned" }, totalEarned + earned)
+	FunnelService:onProgressChanged(player)
 
 	debugPrint(`Wins entregados: {player.Name}, +{earned} (x{multiplier}), total={newWins}`)
 end
@@ -216,6 +218,11 @@ function WinsService:_promptPremiumPurchase(player: Player, winZone: Instance): 
 	-- botón. En data para sobrevivir si el jugador reentra a mitad de compra.
 	dataService:set(player, { "PendingPremiumWins" }, winsQuantity)
 
+	FunnelService:beginServerCheckout(
+		player,
+		WinsConfig.PremiumProductId,
+		"StageWins:" .. tostring(math.floor(winsQuantity))
+	)
 	MarketplaceService:PromptProductPurchase(player, WinsConfig.PremiumProductId)
 	debugPrint(`Premium prompt: {player.Name}, wins={winsQuantity}`)
 end

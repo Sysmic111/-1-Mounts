@@ -6,6 +6,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local SpeedBoostConfig = require(ReplicatedStorage.Shared.SpeedBoostConfig)
 local DataService      = require(ReplicatedStorage.Packages.DataService).client
+local CheckoutAnalytics = require(ReplicatedStorage.Shared.CheckoutAnalytics)
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -64,6 +65,7 @@ local function refresh()
 
 	speedBtn.Visible = true
 	titleLabel.Text  = "x" .. tostring(data.Multiplier) .. " Speed"
+	CheckoutAnalytics.show(data.ProductId, "x" .. tostring(data.Multiplier))
 
 	fetchPrice(data, function(price)
 		-- La data pudo cambiar mientras se resolvía el precio async.
@@ -76,7 +78,7 @@ end
 speedBtn.Activated:Connect(function()
 	local data = SpeedBoostConfig.getByTier(currentTier() + 1)
 	if not data then return end
-	MarketplaceService:PromptProductPurchase(player, data.ProductId)
+	CheckoutAnalytics.prompt(data.ProductId, "x" .. tostring(data.Multiplier))
 end)
 
 task.spawn(function()

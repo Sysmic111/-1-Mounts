@@ -20,6 +20,9 @@
       "Agility": {
         "$path": "src/features/Agility/server"
       },
+      "Analytics": {
+        "$path": "src/features/Analytics/server"
+      },
       "Badges": {
         "$path": "src/features/Badges/server"
       },

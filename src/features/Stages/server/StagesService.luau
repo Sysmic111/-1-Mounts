@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 
 local Packets      = require(game.ReplicatedStorage.Shared.Packets)
 local ReviveConfig = require(game.ReplicatedStorage.Shared.ReviveConfig)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -88,6 +89,7 @@ function StagesService:init(dataService: DataServiceServer, robuxService: RobuxS
 			if player:GetAttribute("LastStage") ~= stageNum then
 				player:SetAttribute("LastStage", stageNum)
 			end
+			FunnelService:onStageReached(player, stageNum)
 		end)
 	end
 

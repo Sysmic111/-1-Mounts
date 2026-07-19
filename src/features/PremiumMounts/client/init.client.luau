@@ -6,6 +6,7 @@ local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 
 local DataService  = require(ReplicatedStorage.Packages.DataService).client
 local MountsConfig = require(ReplicatedStorage.Shared.MountsConfig)
+local CheckoutAnalytics = require(ReplicatedStorage.Shared.CheckoutAnalytics)
 
 local player = Players.LocalPlayer
 
@@ -85,7 +86,7 @@ local function setupBuyButton(buyPart: BasePart, mount: { Name: string, ProductI
 		if (now - (lastPromptTime[productId] or 0)) < PROMPT_COOLDOWN then return end
 		lastPromptTime[productId] = now
 
-		MarketplaceService:PromptProductPurchase(player, productId)
+		CheckoutAnalytics.prompt(productId, mount.Name)
 	end)
 end
 

@@ -4,6 +4,7 @@ local Players            = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 
 local RobuxConfig = require(game.ReplicatedStorage.Shared.RobuxConfig)
+local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -76,7 +77,11 @@ function RobuxService:_processReceipt(receiptInfo: any): Enum.ProductPurchaseDec
 
 	-- Developer Products registrados por otros features (ej. monturas Premium)
 	if handler then
-		return handler(player, receiptInfo)
+		local decision = handler(player, receiptInfo)
+		if decision == Enum.ProductPurchaseDecision.PurchaseGranted then
+			FunnelService:onReceiptGranted(player, productId)
+		end
+		return decision
 	end
 
 	-- Grant access (idempotent — safe to re-run on duplicate receipts)
@@ -85,6 +90,7 @@ function RobuxService:_processReceipt(receiptInfo: any): Enum.ProductPurchaseDec
 		ds:set(player, { key }, true)
 	end
 
+	FunnelService:onReceiptGranted(player, productId)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
