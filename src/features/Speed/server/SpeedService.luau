@@ -187,6 +187,10 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 	local speedTier            = (dataService:get(player, { "SpeedTier" }) or 0) :: number
 	local speedBoostMultiplier = SpeedBoostConfig.getMultiplier(speedTier)
 
+	-- Friends Boost: amigos conectados en el server (atributo en vivo, lo gestiona
+	-- FriendsBoostService). Aditivo, como el resto.
+	local friendsBoost = (player:GetAttribute("FriendsBoost") or 1) :: number
+
 	-- Los multiplicadores se SUMAN entre sí (cada fuente aporta su "+X" sobre una
 	-- base de 1), y SOLO el rebirth multiplica el total: es la mecánica de prestigio.
 	--   total = (1 + Σ(mult-1)) × rebirth
@@ -196,11 +200,12 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 		+ (hatMultiplier - 1)
 		+ (trailMultiplier - 1)
 		+ (speedBoostMultiplier - 1)
+		+ (friendsBoost - 1)
 
 	local total = additiveBase * rebirthMultiplier
 
 	player:SetAttribute("TotalMultiplier", total)
-	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier}] * rebirth x{rebirthMultiplier})`)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier} + friends {friendsBoost}] * rebirth x{rebirthMultiplier})`)
 end
 
 function SpeedService:updateTotalMultiplier(player: Player): ()

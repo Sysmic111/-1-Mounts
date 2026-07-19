@@ -20,6 +20,9 @@
       "Agility": {
         "$path": "src/features/Agility/server"
       },
+      "Badges": {
+        "$path": "src/features/Badges/server"
+      },
       "Daily": {
         "$path": "src/features/Daily/server"
       },
@@ -29,8 +32,14 @@
       "Environment": {
         "$path": "src/features/Environment/server"
       },
+      "FriendsBoost": {
+        "$path": "src/features/FriendsBoost/server"
+      },
       "Hats": {
         "$path": "src/features/Hats/server"
+      },
+      "Leaderboard": {
+        "$path": "src/features/Leaderboard/server"
       },
       "Mounts": {
         "$path": "src/features/Mounts/server"
@@ -85,6 +94,12 @@
         },
         "Environment": {
           "$path": "src/features/Environment/client"
+        },
+        "Events": {
+          "$path": "src/features/Events/client"
+        },
+        "FriendsBoost": {
+          "$path": "src/features/FriendsBoost/client"
         },
         "Hats": {
           "$path": "src/features/Hats/client"
