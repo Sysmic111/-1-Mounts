@@ -7,7 +7,7 @@ local TweenService      = game:GetService("TweenService")
 local SoundService      = game:GetService("SoundService")
 local Workspace         = game:GetService("Workspace")
 
-local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local AlertsModule   = require(ReplicatedStorage.Packages.AlertsModule)
 local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
 local NotifyBadge    = require(ReplicatedStorage.Shared.NotifyBadge)
 local DailyConfig    = require(ReplicatedStorage.Shared.DailyConfig)
@@ -29,8 +29,6 @@ local templates  = scrolling:WaitForChild("Templates")
 local cardTemplate = templates:WaitForChild("DayCardTemplate")            :: ImageButton
 local nextReward = menuDaily:WaitForChild("NextReward")                   :: TextLabel
 
-local notification = menus:WaitForChild("Notification") :: Frame
-
 local sfx = SoundService:WaitForChild("SFX")
 -- Las monturas de los días 7/14/21 son el premio gordo: se anuncian con el sonido
 -- de pull legendario en vez del de recoger moneda.
@@ -48,22 +46,6 @@ local cardsByDay    = {} :: { [number]: ImageButton }
 local pulseTween: Tween? = nil
 
 -- ── Utilidades ───────────────────────────────────────────────────────────────
-
-local function showAlert(title: string, description: string)
-	local titleLabel = notification:FindFirstChild("Title") :: TextLabel?
-	local descLabel  = notification:FindFirstChild("Description") :: TextLabel?
-	if titleLabel then titleLabel.Text = title end
-	if descLabel  then descLabel.Text  = description end
-
-	local buySection = notification:FindFirstChild("BuySection")
-	if buySection then
-		for _, child in buySection:GetChildren() do
-			if child:IsA("GuiObject") then child.Visible = false end
-		end
-	end
-
-	MenuAnimations.open(notification)
-end
 
 -- Reloj UTC del servidor: el cliente nunca decide el día, solo lo muestra.
 local function serverTime(): number
@@ -365,7 +347,7 @@ Packets.ClaimDailyResult.OnClientEvent:Connect(function(success: boolean, day: n
 			task.spawn(playClaimEffect, day)
 		end
 	else
-		showAlert("Daily Login", message)
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 

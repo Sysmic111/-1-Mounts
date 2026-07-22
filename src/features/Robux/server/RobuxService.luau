@@ -4,7 +4,7 @@ local Players            = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 
 local RobuxConfig = require(game.ReplicatedStorage.Shared.RobuxConfig)
-local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService = require(game.ServerScriptService.Server.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,

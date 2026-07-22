@@ -17,11 +17,11 @@
       "ServerPackages": {
         "$path": "ServerPackages"
       },
+      "Admin": {
+        "$path": "src/features/Admin/server"
+      },
       "Agility": {
         "$path": "src/features/Agility/server"
-      },
-      "Analytics": {
-        "$path": "src/features/Analytics/server"
       },
       "Badges": {
         "$path": "src/features/Badges/server"
@@ -37,6 +37,9 @@
       },
       "FriendsBoost": {
         "$path": "src/features/FriendsBoost/server"
+      },
+      "GroupBonus": {
+        "$path": "src/features/GroupBonus/server"
       },
       "Hats": {
         "$path": "src/features/Hats/server"
@@ -89,8 +92,14 @@
         "Client": {
           "$path": "src/client"
         },
+        "Admin": {
+          "$path": "src/features/Admin/client"
+        },
         "Agility": {
           "$path": "src/features/Agility/client"
+        },
+        "Broadcast": {
+          "$path": "src/features/Broadcast/client"
         },
         "Daily": {
           "$path": "src/features/Daily/client"
@@ -103,6 +112,9 @@
         },
         "FriendsBoost": {
           "$path": "src/features/FriendsBoost/client"
+        },
+        "GroupBonus": {
+          "$path": "src/features/GroupBonus/client"
         },
         "Hats": {
           "$path": "src/features/Hats/client"

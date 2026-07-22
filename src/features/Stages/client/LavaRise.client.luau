@@ -26,7 +26,7 @@ local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
 -- ── Tunables ──────────────────────────────────────────────────────────────────
 local REFERENCE_LEVEL = 90
 local MAX_SIZE_Y      = 200                                          -- altura máxima
-local RISE_SPEED      = SpeedConfig.getWalkSpeedForLevel(REFERENCE_LEVEL) /2 -- studs/s
+local RISE_SPEED      = SpeedConfig.getWalkSpeedForLevel(REFERENCE_LEVEL) /2.5 -- studs/s
 local WAIT_TIME       = 1.5                                          -- s de espera antes de crecer
 
 -- ── Estado ────────────────────────────────────────────────────────────────────

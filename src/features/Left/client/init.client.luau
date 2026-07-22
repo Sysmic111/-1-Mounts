@@ -4,7 +4,6 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")
 
-local MenuAnimations  = require(ReplicatedStorage.Shared.MenuAnimations)
 local MenuManager     = require(ReplicatedStorage.Shared.MenuManager)
 local NotifyBadge     = require(ReplicatedStorage.Shared.NotifyBadge)
 local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
@@ -31,13 +30,11 @@ local btnWorlds    = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChil
 local menuEvolve   = menus:WaitForChild("Evolve")       :: Frame
 local menuRebirth  = menus:WaitForChild("Rebirth")      :: Frame
 local menuIndex    = menus:WaitForChild("Index")        :: Frame
-local notification = menus:WaitForChild("Notification") :: Frame
 
 -- Botones de cierre
 local closeEvolve   = menuEvolve:WaitForChild("Right"):WaitForChild("Close")    :: ImageButton
 local closeRebirth  = menuRebirth:WaitForChild("Right"):WaitForChild("Close")   :: ImageButton
 local closeIndex    = menuIndex:WaitForChild("Right"):WaitForChild("Close")     :: ImageButton
-local closeNotif    = notification:WaitForChild("Close")                         :: ImageButton
 
 -- Referencias del menú Index
 local indexLeftPanel    = menuIndex:WaitForChild("Left")              :: ScrollingFrame
@@ -87,32 +84,6 @@ task.spawn(function()
 	rebirthVal.Changed:Connect(function(newValue: number)
 		rebirthsQtyLabel.Text = tostring(newValue)
 	end)
-end)
-
--- ── Alert ────────────────────────────────────────────────────────────────────
-
-local function showAlert(title: string, description: string)
-	local titleLabel = notification:FindFirstChild("Title") :: TextLabel?
-	local descLabel  = notification:FindFirstChild("Description") :: TextLabel?
-	if titleLabel then titleLabel.Text = title end
-	if descLabel  then descLabel.Text  = description end
-
-	-- Ocultar BuySection (no aplica para alertas)
-	local buySection = notification:FindFirstChild("BuySection")
-	if buySection then
-		for _, child in buySection:GetChildren() do
-			if child:IsA("GuiObject") then child.Visible = false end
-		end
-	end
-
-	MenuAnimations.open(notification)
-end
-
--- Notification NO lo gestiona MenuManager: es una alerta que va por encima del
--- menú abierto. Al cerrarla, el blur solo se quita si no queda menú detrás.
-closeNotif.MouseButton1Click:Connect(function()
-	MenuAnimations.close(notification)
-	MenuManager.refreshBlur()
 end)
 
 -- Teleports y Worlds: aún no implementados → mostrar error "Coming Soon"
@@ -313,7 +284,7 @@ Packets.RebirthResult.OnClientEvent:Connect(function(success: boolean, message: 
 	if success then
 		MenuManager.close(menuRebirth)
 	else
-		showAlert("Cannot Rebirth", message)
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 

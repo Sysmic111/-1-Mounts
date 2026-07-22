@@ -425,6 +425,15 @@ RunService.Heartbeat:Connect(function(dt: number)
 		return
 	end
 
+	-- Solo se gana speed pisando suelo: caer del cielo o saltar mueve la posición
+	-- (incluido el eje vertical) y acumularía speed sin caminar. FloorMaterial es
+	-- Air en caída libre/salto. Mantenemos lastPosition al día para que el salto de
+	-- posición de la caída no se cuente de golpe al aterrizar.
+	if humanoid.FloorMaterial == Enum.Material.Air then
+		lastPosition = currentPosition
+		return
+	end
+
 	local moved = (currentPosition - lastPosition).Magnitude
 	lastPosition = currentPosition
 

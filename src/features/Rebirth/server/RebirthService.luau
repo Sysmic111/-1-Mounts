@@ -5,7 +5,7 @@ local Workspace = game:GetService("Workspace")
 
 local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local Packets       = require(game.ReplicatedStorage.Shared.Packets)
-local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService = require(game.ServerScriptService.Server.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,

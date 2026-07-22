@@ -22,8 +22,11 @@ local SpeedConfig = {
 	-- de multiplicadores (total = (1+Σ(mult-1)) × rebirth) con mounts persistentes:
 	-- 1.19 → ~5.6h hasta nivel 130, 1.20 → ~8.65h, 1.205 → ~11.2h.
 	-- (Con el viejo modelo multiplicativo el valor era 1.230; ya no aplica.)
+	-- Subido 1.200 → 1.204 al reforzar hats/trails (aporte a la base ~6-8× mayor):
+	-- ese buff acortaba el nivel 130 a ~7.2h (-16%, todo en mid-late game); 1.204
+	-- restaura ~8.6h (R8 6.7h) sin tocar el arranque (R1 sigue ~19min).
 	BaseRequiredSpeed = 8,
-	RequiredSpeedGrowth = 1.200,
+	RequiredSpeedGrowth = 1.204,
 
 	StudsPerSpeed = 5,
 	MovementCheckInterval = 0.1,

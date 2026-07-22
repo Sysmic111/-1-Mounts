@@ -8,7 +8,8 @@ local Workspace = game:GetService("Workspace")
 local WinsConfig    = require(script.Parent.WinsConfig)
 local RebirthConfig = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local FormatNumber  = require(game.ReplicatedStorage.Packages.FormatNumber)
-local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService = require(game.ServerScriptService.Server.FunnelService)
+local Packets       = require(game.ReplicatedStorage.Shared.Packets)
 
 type DataServiceServer = {
 	hasProfile: (self: DataServiceServer, player: Player) -> boolean,
@@ -179,6 +180,14 @@ function WinsService:_creditWins(player: Player, winsQuantity: number): ()
 	local totalEarned = (dataService:get(player, { "TotalWinsEarned" }) or 0) :: number
 	dataService:set(player, { "TotalWinsEarned" }, totalEarned + earned)
 	FunnelService:onProgressChanged(player)
+
+	-- En el 2º claim de por vida se lanza el prompt nativo de favoritos (una sola vez).
+	-- El == 2 solo se cumple una vez en la vida del jugador, así que no se repite.
+	local claimCount = ((dataService:get(player, { "WinsClaimCount" }) or 0) :: number) + 1
+	dataService:set(player, { "WinsClaimCount" }, claimCount)
+	if claimCount == 2 then
+		Packets.PromptFavorite:FireClient(player)
+	end
 
 	debugPrint(`Wins entregados: {player.Name}, +{earned} (x{multiplier}), total={newWins}`)
 end

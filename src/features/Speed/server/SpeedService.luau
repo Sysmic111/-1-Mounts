@@ -6,8 +6,9 @@ local CollectionService = game:GetService("CollectionService")
 local SpeedConfig      = require(game.ReplicatedStorage.Shared.SpeedConfig)
 local RebirthConfig    = require(game.ReplicatedStorage.Shared.RebirthConfig)
 local SpeedBoostConfig = require(game.ReplicatedStorage.Shared.SpeedBoostConfig)
+local GroupBonusConfig = require(game.ReplicatedStorage.Shared.GroupBonusConfig)
 local Packets          = require(game.ReplicatedStorage.Shared.Packets)
-local FunnelService    = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService    = require(game.ServerScriptService.Server.FunnelService)
 
 -- Returns the highest treadmill Multiplier the player is allowed to use,
 -- considering both rebirth-gated and Robux-gated treadmills.
@@ -192,6 +193,12 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 	-- FriendsBoostService). Aditivo, como el resto.
 	local friendsBoost = (player:GetAttribute("FriendsBoost") or 1) :: number
 
+	-- Group Bonus: flag permanente que concede GroupBonusService. Se lee directo de la
+	-- data (como SpeedTier). Aditivo: aporta +(Multiplier-1) a la base.
+	local groupBonusMultiplier = if dataService:get(player, { "GroupBonusClaimed" }) == true
+		then GroupBonusConfig.Multiplier
+		else 1
+
 	-- Los multiplicadores se SUMAN entre sí (cada fuente aporta su "+X" sobre una
 	-- base de 1), y SOLO el rebirth multiplica el total: es la mecánica de prestigio.
 	--   total = (1 + Σ(mult-1)) × rebirth
@@ -202,11 +209,12 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 		+ (trailMultiplier - 1)
 		+ (speedBoostMultiplier - 1)
 		+ (friendsBoost - 1)
+		+ (groupBonusMultiplier - 1)
 
 	local total = additiveBase * rebirthMultiplier
 
 	player:SetAttribute("TotalMultiplier", total)
-	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier} + friends {friendsBoost}] * rebirth x{rebirthMultiplier})`)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier} + friends {friendsBoost} + group {groupBonusMultiplier}] * rebirth x{rebirthMultiplier})`)
 end
 
 function SpeedService:updateTotalMultiplier(player: Player): ()

@@ -3,7 +3,7 @@
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local AlertsModule   = require(ReplicatedStorage.Packages.AlertsModule)
 local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
 local TrailsData     = require(ReplicatedStorage.Shared.TrailsData)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
@@ -25,10 +25,6 @@ local closeTrails  = menuTrails:WaitForChild("Right"):WaitForChild("Close") :: I
 local scrolling    = menuTrails:WaitForChild("ScrollingFrame")  :: ScrollingFrame
 local templates    = scrolling:WaitForChild("Templates")
 local cardTemplate = templates:WaitForChild("CardTemplateNumbered") :: ImageButton
-
--- Notificación (para alertas de error), compartida con el resto de menús
-local notification = menus:WaitForChild("Notification") :: Frame
-local closeNotif   = notification:WaitForChild("Close")  :: ImageButton
 
 -- Imagen base común a todos los trails; el color lo da el UIGradient por trail.
 local TRAIL_IMAGE = "rbxassetid://109820878267213"
@@ -82,26 +78,6 @@ end
 
 
 -- ── Utilidades ───────────────────────────────────────────────────────────────
-
-local function showAlert(title: string, description: string)
-	local titleLabel = notification:FindFirstChild("Title") :: TextLabel?
-	local descLabel  = notification:FindFirstChild("Description") :: TextLabel?
-	if titleLabel then titleLabel.Text = title end
-	if descLabel  then descLabel.Text  = description end
-
-	local buySection = notification:FindFirstChild("BuySection")
-	if buySection then
-		for _, child in buySection:GetChildren() do
-			if child:IsA("GuiObject") then child.Visible = false end
-		end
-	end
-
-	MenuAnimations.open(notification)
-end
-
-closeNotif.MouseButton1Click:Connect(function()
-	MenuAnimations.close(notification)
-end)
 
 -- ── Grid de trails ───────────────────────────────────────────────────────────
 
@@ -243,13 +219,13 @@ end)
 
 Packets.BuyTrailResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	if not success then
-		showAlert("Cannot Buy", message)
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 
 Packets.EquipTrailResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	if not success then
-		showAlert("Cannot Equip", message)
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 

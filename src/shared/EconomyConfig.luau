@@ -45,7 +45,7 @@ EconomyConfig.StageWins = {
 -- (WinsConfig.PremiumProductId), o sea que cuestan lo mismo en Robux sin importar
 -- el stage: su valor tiene que escalar con el stage o comprarlo en el 2 sería
 -- idéntico a comprarlo en el 14.
-EconomyConfig.PremiumWinsFactor = 4
+EconomyConfig.PremiumWinsFactor = 2
 
 -- ── Steps buttons ────────────────────────────────────────────────────────────
 

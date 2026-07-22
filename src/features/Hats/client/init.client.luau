@@ -3,7 +3,7 @@
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local MenuAnimations = require(ReplicatedStorage.Shared.MenuAnimations)
+local AlertsModule   = require(ReplicatedStorage.Packages.AlertsModule)
 local MenuManager    = require(ReplicatedStorage.Shared.MenuManager)
 local HatsData       = require(ReplicatedStorage.Shared.HatsData)
 local Packets        = require(ReplicatedStorage.Shared.Packets)
@@ -29,32 +29,7 @@ local scrolling    = menuHats:WaitForChild("ScrollingFrame")   :: ScrollingFrame
 local templates    = scrolling:WaitForChild("Templates")
 local cardTemplate = templates:WaitForChild("CardTemplateNumbered") :: ImageButton
 
--- Notificación (para alertas de error), compartida con el resto de menús
-local notification = menus:WaitForChild("Notification") :: Frame
-local closeNotif   = notification:WaitForChild("Close")  :: ImageButton
-
-
 -- ── Utilidades ───────────────────────────────────────────────────────────────
-
-local function showAlert(title: string, description: string)
-	local titleLabel = notification:FindFirstChild("Title") :: TextLabel?
-	local descLabel  = notification:FindFirstChild("Description") :: TextLabel?
-	if titleLabel then titleLabel.Text = title end
-	if descLabel  then descLabel.Text  = description end
-
-	local buySection = notification:FindFirstChild("BuySection")
-	if buySection then
-		for _, child in buySection:GetChildren() do
-			if child:IsA("GuiObject") then child.Visible = false end
-		end
-	end
-
-	MenuAnimations.open(notification)
-end
-
-closeNotif.MouseButton1Click:Connect(function()
-	MenuAnimations.close(notification)
-end)
 
 -- Imagen del icono de la card "Remove" (la misma de dentro del botón de cerrar).
 local REMOVE_IMAGE = "rbxassetid://113114987656737"
@@ -223,13 +198,13 @@ end)
 
 Packets.BuyHatResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	if not success then
-		showAlert("Cannot Buy", message)
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 
 Packets.EquipHatResult.OnClientEvent:Connect(function(success: boolean, message: string)
 	if not success then
-		showAlert("Cannot Equip", message)
+		AlertsModule.ShowAlertGui("Error", message)
 	end
 end)
 

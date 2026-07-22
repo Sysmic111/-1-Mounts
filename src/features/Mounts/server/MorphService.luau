@@ -123,7 +123,7 @@ end
 
 local TRAIL_NAME = "EquippedTrail" -- nombre del Trail y de sus attachments sobre la montura
 
--- Quita el trail actual (si hay) y coloca el nuevo, horizontal (lado→lado) en la
+-- Quita el trail actual (si hay) y coloca el nuevo, vertical (arriba→abajo) en la
 -- parte trasera de la montura. trailName == "" => solo quitar.
 local function attachTrail(character: Model, trailName: string): ()
 	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -141,25 +141,26 @@ local function attachTrail(character: Model, trailName: string): ()
 	local trailData = TrailsData.getTrailData(trailName)
 	if not trailData then return end
 
-	-- Posición: parte trasera, extremos a cada lado (tuneable por atributos de la montura)
+	-- Posición: parte trasera, extremos arriba y abajo (tuneable por atributos de la
+	-- montura). El span vertical usa TrailWidth como longitud (o el alto del HRP).
 	local back   = (character:GetAttribute("TrailBack")   or (hrp.Size.Z * 0.5)) :: number
-	local height = (character:GetAttribute("TrailHeight") or 0) :: number
-	local half   = ((character:GetAttribute("TrailWidth") or hrp.Size.X) :: number) / 2
+	local center = (character:GetAttribute("TrailHeight") or 0) :: number
+	local half   = ((character:GetAttribute("TrailWidth") or hrp.Size.Y) :: number) / 2
 
-	local attL = Instance.new("Attachment")
-	attL.Name = TRAIL_NAME
-	attL.Position = Vector3.new(-half, height, back)
-	attL.Parent = hrp
+	local attTop = Instance.new("Attachment")
+	attTop.Name = TRAIL_NAME
+	attTop.Position = Vector3.new(0, center + half, back)
+	attTop.Parent = hrp
 
-	local attR = Instance.new("Attachment")
-	attR.Name = TRAIL_NAME
-	attR.Position = Vector3.new(half, height, back)
-	attR.Parent = hrp
+	local attBottom = Instance.new("Attachment")
+	attBottom.Name = TRAIL_NAME
+	attBottom.Position = Vector3.new(0, center - half, back)
+	attBottom.Parent = hrp
 
 	local trail = Instance.new("Trail")
 	trail.Name = TRAIL_NAME
-	trail.Attachment0 = attL
-	trail.Attachment1 = attR
+	trail.Attachment0 = attTop
+	trail.Attachment1 = attBottom
 	-- Trail.Color es un ColorSequence: si el trail define un Gradient (Rainbow), se
 	-- usa tal cual para que la cinta muestre todo el espectro; el resto son color sólido.
 	trail.Color = trailData.Gradient or ColorSequence.new(trailData.Color)

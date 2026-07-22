@@ -3,7 +3,7 @@ local Players   = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Packets = require(game.ReplicatedStorage.Shared.Packets)
-local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService = require(game.ServerScriptService.Server.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,

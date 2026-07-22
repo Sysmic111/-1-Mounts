@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DailyConfig = require(ReplicatedStorage.Shared.DailyConfig)
 local Packets     = require(ReplicatedStorage.Shared.Packets)
-local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService = require(game.ServerScriptService.Server.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,

@@ -6,7 +6,7 @@ local MountsConfig = require(game.ReplicatedStorage.Shared.MountsConfig)
 local MorphService = require(script.Parent.MorphService)
 local Packets     = require(game.ReplicatedStorage.Shared.Packets)
 local FormatNumber = require(game.ReplicatedStorage.Packages.FormatNumber)
-local FunnelService = require(game.ServerScriptService.Analytics.FunnelService)
+local FunnelService = require(game.ServerScriptService.Server.FunnelService)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,

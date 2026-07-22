@@ -49,4 +49,34 @@ return {
 	WallHit           = Packet("WallHit"),
 	AnalyticsCheckoutAction = Packet("AnalyticsCheckoutAction", Packet.String, Packet.NumberU32, Packet.String, Packet.String),
 	AnalyticsCheckoutSession = Packet("AnalyticsCheckoutSession", Packet.NumberU32, Packet.String, Packet.String),
+	-- Group bonus: cliente pide verificar (sin datos); servidor responde con un status
+	-- ("Granted" | "NotInGroup" | "NeedLikeRejoin" | "AlreadyClaimed").
+	VerifyGroupBonus  = Packet("VerifyGroupBonus"),
+	GroupBonusResult  = Packet("GroupBonusResult", Packet.String),
+	-- Servidor pide al cliente lanzar el prompt nativo de favoritos (sin datos).
+	PromptFavorite    = Packet("PromptFavorite"),
+
+	-- Admin panel. El cliente solo dispara estos remotes desde el panel (que solo se
+	-- construye para admins); el servidor revalida player.UserId contra AdminConfig en
+	-- CADA handler, así que dispararlos a mano siendo no-admin no hace nada.
+	-- targetUserId va como F64 (los UserId de Roblox superan el rango U32).
+	AdminGiveMount    = Packet("AdminGiveMount", Packet.NumberF64, Packet.String),
+	AdminGiveWins     = Packet("AdminGiveWins",  Packet.NumberF64, Packet.NumberF64),
+	AdminSlow         = Packet("AdminSlow",       Packet.NumberF64),
+	-- Ban con el sistema propio de Roblox (Players:BanAsync). duration en segundos:
+	-- 86400 (1 día), 604800 (1 semana) o -1 (permanente). El servidor valida que sea
+	-- uno de esos tres y que el target no sea admin.
+	AdminBan          = Packet("AdminBan", Packet.NumberF64, Packet.NumberF64),
+	-- Unban con el sistema propio de Roblox (Players:UnbanAsync). Por UserId (el
+	-- jugador no está en la sala). El servidor valida admin + UserId válido.
+	AdminUnban        = Packet("AdminUnban", Packet.NumberF64),
+	-- Mensaje global admin → servidor. scope: "global" (todos los servers vía
+	-- MessagingService) | "server" (este server) | "player" (targetUserId). El
+	-- targetUserId va 0 salvo en "player". El servidor valida admin + longitud.
+	AdminBroadcast    = Packet("AdminBroadcast", Packet.String, Packet.String, Packet.NumberF64),
+	-- Servidor → cliente: mostrar el banner superior. Lleva el nombre del emisor
+	-- (para pintarlo dorado), el mensaje y si el emisor está verificado (para anteponer
+	-- el badge de Roblox). Lo recibe el feature Broadcast (que corren TODOS los
+	-- jugadores, no solo admins).
+	ShowBroadcast     = Packet("ShowBroadcast", Packet.String, Packet.String, Packet.Boolean8),
 }

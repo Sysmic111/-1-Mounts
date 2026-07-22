@@ -2,7 +2,7 @@
 
 -- Los trails dan un Multiplier que se integra al TotalMultiplier (× como hats/mounts).
 -- Se compran con WinCurrency. La primera compra equipa automáticamente.
--- Al equiparse se coloca un Trail horizontal (lado→lado) en la parte trasera de la montura.
+-- Al equiparse se coloca un Trail vertical (arriba→abajo) en la parte trasera de la montura.
 -- Texture y Color son de PRUEBA: cambiar Texture por los assets reales cuando estén.
 -- (Un Trail sin textura válida igual renderiza como cinta del Color indicado.)
 
@@ -33,14 +33,14 @@ local TrailsData = {
 
 	-- Orden = orden de aparición en el menú (LayoutOrder)
 	Trails = {
-		{ Name = "Ember",     Multiplier = 1.10, Price = 250,    Texture = Placeholder, Color = Color3.fromRGB(255, 94, 33)   },
-		{ Name = "Aqua",      Multiplier = 1.25, Price = 1000,   Texture = Placeholder, Color = Color3.fromRGB(38, 198, 218)  },
-		{ Name = "Toxic",     Multiplier = 1.45, Price = 3600,   Texture = Placeholder, Color = Color3.fromRGB(118, 255, 3)   },
-		{ Name = "Voltage",   Multiplier = 1.70, Price = 12000,  Texture = Placeholder, Color = Color3.fromRGB(255, 235, 59)  },
-		{ Name = "Bubblegum", Multiplier = 2.00, Price = 40000,  Texture = Placeholder, Color = Color3.fromRGB(255, 105, 180) },
-		{ Name = "Void",      Multiplier = 2.50, Price = 120000, Texture = Placeholder, Color = Color3.fromRGB(124, 77, 255)  },
-		{ Name = "Frost",     Multiplier = 3.20, Price = 380000, Texture = Placeholder, Color = Color3.fromRGB(179, 229, 252) },
-		{ Name = "Rainbow",   Multiplier = 4.00, Price = 900000, Texture = Placeholder, Color = Color3.fromRGB(255, 255, 255), Gradient = RainbowGradient },
+		{ Name = "Ember",     Multiplier = 2.00,  Price = 250,    Texture = Placeholder, Color = Color3.fromRGB(255, 94, 33)   },
+		{ Name = "Aqua",      Multiplier = 3.50,  Price = 1000,   Texture = Placeholder, Color = Color3.fromRGB(38, 198, 218)  },
+		{ Name = "Toxic",     Multiplier = 6.00,  Price = 3600,   Texture = Placeholder, Color = Color3.fromRGB(118, 255, 3)   },
+		{ Name = "Voltage",   Multiplier = 9.00,  Price = 12000,  Texture = Placeholder, Color = Color3.fromRGB(255, 235, 59)  },
+		{ Name = "Bubblegum", Multiplier = 12.00, Price = 40000,  Texture = Placeholder, Color = Color3.fromRGB(255, 105, 180) },
+		{ Name = "Void",      Multiplier = 16.00, Price = 120000, Texture = Placeholder, Color = Color3.fromRGB(124, 77, 255)  },
+		{ Name = "Frost",     Multiplier = 22.00, Price = 380000, Texture = Placeholder, Color = Color3.fromRGB(179, 229, 252) },
+		{ Name = "Rainbow",   Multiplier = 30.00, Price = 900000, Texture = Placeholder, Color = Color3.fromRGB(255, 255, 255), Gradient = RainbowGradient },
 	} :: { TrailData },
 
 }

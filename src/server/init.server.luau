@@ -28,8 +28,10 @@ local SpeedBuyService   = require(ServerScriptService.SpeedBuy.SpeedBuyService)
 local LeaderboardService = require(ServerScriptService.Leaderboard.LeaderboardService)
 local BadgesService     = require(ServerScriptService.Badges.BadgesService)
 local FriendsBoostService = require(ServerScriptService.FriendsBoost.FriendsBoostService)
+local GroupBonusService = require(ServerScriptService.GroupBonus.GroupBonusService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
-local FunnelService    = require(ServerScriptService.Analytics.FunnelService)
+local AdminService     = require(ServerScriptService.Admin.AdminService)
+local FunnelService    = require(script.FunnelService)
 
 DataService:init({
 	--useMock = true,
@@ -60,6 +62,14 @@ DataService:init({
 		StarterPackBought  = false,
 		InfiniteRevives    = false,
 		SpeedTier          = 0,
+		-- Bonus permanente por pertenecer al grupo (fuente aditiva del TotalMultiplier).
+		GroupBonusClaimed  = false,
+		-- Contador de por vida de entradas al juego. Se incrementa una vez por sesión
+		-- (GroupBonusService). Sirve para el gate "like the game and rejoin": la 1ª
+		-- entrada queda en 1, así que >=2 = ha reconectado al menos una vez.
+		TimesJoined        = 0,
+		-- Contador de por vida de claims de Wins. En el 2º se lanza el prompt de favoritos.
+		WinsClaimCount     = 0,
 		-- Estadísticas de por vida (para leaderboard): acumulan todo lo ganado,
 		-- nunca bajan al gastar Wins ni al rebirthear.
 		TotalSpeedEarned   = 0,
@@ -109,6 +119,8 @@ LeaderboardService:init(DataService)
 BadgesService:init()
 FriendsBoostService:init()
 FriendsBoostService:setSpeedService(SpeedService)
+GroupBonusService:init(DataService)
+GroupBonusService:setSpeedService(SpeedService)
 MorphService.setDataService(DataService)
 HatsService:init(DataService)
 HatsService:setSpeedService(SpeedService)
@@ -119,6 +131,7 @@ TrailsService:setSpeedService(SpeedService)
 TrailsService:setMorphService(MorphService)
 SpeedService:setTrailsService(TrailsService)
 DailyService:init(DataService)
+AdminService:init(DataService)
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

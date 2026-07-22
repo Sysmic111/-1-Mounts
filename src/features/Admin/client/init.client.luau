@@ -1,0 +1,623 @@
+--!strict
+
+-- Cliente del admin panel. Se construye SOLO si el UserId local está en el
+-- allowlist. Esto es puramente cosmético: la seguridad la garantiza AdminService,
+-- que revalida en el servidor. Si un no-admin editara su cliente para mostrar el
+-- panel y disparar los remotes, el servidor los rechazaría igual.
+
+local Players           = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local AdminConfig  = require(ReplicatedStorage.Shared.AdminConfig)
+local MountsConfig = require(ReplicatedStorage.Shared.MountsConfig)
+local Packets      = require(ReplicatedStorage.Shared.Packets)
+
+local player = Players.LocalPlayer
+
+-- Gate cosmético: si no sos admin, el script no crea nada y termina.
+if not AdminConfig.isAdmin(player.UserId) then
+	return
+end
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Presets de Wins (label -> monto)
+local WIN_PRESETS = {
+	{ label = "+1K",   amount = 1000 },
+	{ label = "+10K",  amount = 10000 },
+	{ label = "+100K", amount = 100000 },
+	{ label = "+1M",   amount = 1000000 },
+}
+
+-- Target seleccionado (por UserId). Arranca en uno mismo.
+local selectedUserId: number = player.UserId
+
+-- ── Helpers de UI ────────────────────────────────────────────────────────────
+
+local function corner(parent: Instance, radius: number)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = parent
+end
+
+local function makeButton(parent: Instance, text: string, color: Color3): TextButton
+	local btn = Instance.new("TextButton")
+	btn.BackgroundColor3 = color
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = true
+	btn.Font = Enum.Font.FredokaOne
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.TextScaled = true
+	btn.Parent = parent
+	corner(btn, 6)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 6)
+	pad.PaddingRight = UDim.new(0, 6)
+	pad.Parent = btn
+	local con = Instance.new("UITextSizeConstraint")
+	con.MaxTextSize = 18
+	con.Parent = btn
+	return btn
+end
+
+local function makeLabel(parent: Instance, text: string): TextLabel
+	local lbl = Instance.new("TextLabel")
+	lbl.BackgroundTransparency = 1
+	lbl.Font = Enum.Font.FredokaOne
+	lbl.Text = text
+	lbl.TextColor3 = Color3.fromRGB(180, 200, 230)
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.TextScaled = true
+	lbl.Size = UDim2.new(1, 0, 0, 20)
+	lbl.Parent = parent
+	local con = Instance.new("UITextSizeConstraint")
+	con.MaxTextSize = 16
+	con.Parent = lbl
+	return lbl
+end
+
+-- ── Construcción del ScreenGui ───────────────────────────────────────────────
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "AdminPanel"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.DisplayOrder = 200
+gui.Parent = playerGui
+
+-- Ventana de confirmación reutilizable. Bloquea con un overlay para no tocar nada
+-- de atrás por accidente. Confirm ejecuta onConfirm; Cancel solo cierra.
+local function confirmAction(message: string, confirmLabel: string, confirmColor: Color3, onConfirm: () -> ())
+	local overlay = Instance.new("Frame")
+	overlay.Name = "ConfirmOverlay"
+	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	overlay.BackgroundTransparency = 0.45
+	overlay.BorderSizePixel = 0
+	overlay.Size = UDim2.fromScale(1, 1)
+	overlay.ZIndex = 50
+	overlay.Parent = gui
+
+	local box = Instance.new("Frame")
+	box.BackgroundColor3 = Color3.fromRGB(28, 32, 44)
+	box.BorderSizePixel = 0
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.fromOffset(300, 170)
+	box.ZIndex = 51
+	box.Parent = overlay
+	corner(box, 10)
+	do
+		local s = Instance.new("UIStroke")
+		s.Color = confirmColor
+		s.Thickness = 2
+		s.Parent = box
+	end
+
+	local msg = Instance.new("TextLabel")
+	msg.BackgroundTransparency = 1
+	msg.Font = Enum.Font.FredokaOne
+	msg.Text = message
+	msg.TextColor3 = Color3.fromRGB(235, 240, 250)
+	msg.TextWrapped = true
+	msg.TextScaled = true
+	msg.AnchorPoint = Vector2.new(0.5, 0)
+	msg.Position = UDim2.new(0.5, 0, 0, 16)
+	msg.Size = UDim2.new(1, -28, 0, 80)
+	msg.ZIndex = 52
+	msg.Parent = box
+	do
+		local con = Instance.new("UITextSizeConstraint")
+		con.MaxTextSize = 18
+		con.Parent = msg
+	end
+
+	local cancelBtn = makeButton(box, "Cancel", Color3.fromRGB(70, 78, 96))
+	cancelBtn.AnchorPoint = Vector2.new(0, 1)
+	cancelBtn.Position = UDim2.new(0, 16, 1, -16)
+	cancelBtn.Size = UDim2.new(0.5, -22, 0, 38)
+	cancelBtn.ZIndex = 52
+
+	local confirmBtn = makeButton(box, confirmLabel, confirmColor)
+	confirmBtn.AnchorPoint = Vector2.new(1, 1)
+	confirmBtn.Position = UDim2.new(1, -16, 1, -16)
+	confirmBtn.Size = UDim2.new(0.5, -22, 0, 38)
+	confirmBtn.ZIndex = 52
+
+	cancelBtn.MouseButton1Click:Connect(function()
+		overlay:Destroy()
+	end)
+	confirmBtn.MouseButton1Click:Connect(function()
+		overlay:Destroy()
+		onConfirm()
+	end)
+end
+
+-- Botón toggle en la esquina
+local toggleBtn = makeButton(gui, "ADMIN", Color3.fromRGB(200, 60, 60))
+toggleBtn.Name = "AdminToggle"
+toggleBtn.Size = UDim2.new(0, 90, 0, 34)
+toggleBtn.Position = UDim2.new(0, 12, 0, 120)
+toggleBtn.AnchorPoint = Vector2.new(0, 0)
+
+-- Panel
+local panel = Instance.new("Frame")
+panel.Name = "Panel"
+panel.BackgroundColor3 = Color3.fromRGB(24, 28, 38)
+panel.BorderSizePixel = 0
+-- AutomaticSize.Y: el panel siempre envuelve su contenido, así ninguna sección se
+-- desborda ni se pisa aunque cambie el número de botones.
+panel.Size = UDim2.fromOffset(548, 0)
+panel.AutomaticSize = Enum.AutomaticSize.Y
+panel.Position = UDim2.new(0, 12, 0, 160)
+panel.Visible = false
+panel.Parent = gui
+corner(panel, 10)
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(200, 60, 60)
+stroke.Thickness = 2
+stroke.Parent = panel
+
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 9)
+layout.Parent = panel
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 10)
+padding.PaddingBottom = UDim.new(0, 10)
+padding.PaddingLeft = UDim.new(0, 10)
+padding.PaddingRight = UDim.new(0, 10)
+padding.Parent = panel
+
+local order = 0
+local function nextOrder(): number
+	order += 1
+	return order
+end
+
+-- Título
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.FredokaOne
+title.Text = "ADMIN PANEL"
+title.TextColor3 = Color3.fromRGB(255, 90, 90)
+title.TextScaled = true
+title.Size = UDim2.new(1, 0, 0, 26)
+title.LayoutOrder = nextOrder()
+title.Parent = panel
+do
+	local con = Instance.new("UITextSizeConstraint")
+	con.MaxTextSize = 22
+	con.Parent = title
+end
+
+-- ── Cuerpo en dos columnas ────────────────────────────────────────────────────
+-- El título va full-width arriba; debajo, dos columnas lado a lado para que el
+-- panel no se estire tanto hacia abajo.
+
+local body = Instance.new("Frame")
+body.Name = "Body"
+body.BackgroundTransparency = 1
+body.Size = UDim2.new(1, 0, 0, 0)
+body.AutomaticSize = Enum.AutomaticSize.Y
+body.LayoutOrder = nextOrder()
+body.Parent = panel
+do
+	local l = Instance.new("UIListLayout")
+	l.FillDirection = Enum.FillDirection.Horizontal
+	l.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	l.VerticalAlignment = Enum.VerticalAlignment.Top
+	l.Padding = UDim.new(0, 12)
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Parent = body
+end
+
+local function makeColumn(columnOrder: number): Frame
+	local col = Instance.new("Frame")
+	col.BackgroundTransparency = 1
+	col.Size = UDim2.new(0, 258, 0, 0)
+	col.AutomaticSize = Enum.AutomaticSize.Y
+	col.LayoutOrder = columnOrder
+	col.Parent = body
+	local l = Instance.new("UIListLayout")
+	l.FillDirection = Enum.FillDirection.Vertical
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Padding = UDim.new(0, 9)
+	l.Parent = col
+	return col
+end
+
+local leftCol  = makeColumn(1)
+local rightCol = makeColumn(2)
+
+-- ── Sección Target ───────────────────────────────────────────────────────────
+
+local targetHeader = makeLabel(leftCol, "TARGET")
+targetHeader.LayoutOrder = nextOrder()
+
+local targetList = Instance.new("ScrollingFrame")
+targetList.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+targetList.BorderSizePixel = 0
+targetList.Size = UDim2.new(1, 0, 0, 110)
+targetList.CanvasSize = UDim2.new(0, 0, 0, 0)
+targetList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+targetList.ScrollBarThickness = 4
+targetList.LayoutOrder = nextOrder()
+targetList.Parent = leftCol
+corner(targetList, 6)
+do
+	local l = Instance.new("UIListLayout")
+	l.Padding = UDim.new(0, 3)
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Parent = targetList
+	local p = Instance.new("UIPadding")
+	p.PaddingTop = UDim.new(0, 4)
+	p.PaddingBottom = UDim.new(0, 4)
+	p.PaddingLeft = UDim.new(0, 4)
+	p.PaddingRight = UDim.new(0, 4)
+	p.Parent = targetList
+end
+
+-- Botones de target (se re-crean al entrar/salir jugadores). Guardamos las refs
+-- para poder resaltar el seleccionado.
+local targetButtons: { [number]: TextButton } = {}
+
+local function refreshTargetHighlight()
+	for userId, btn in targetButtons do
+		if userId == selectedUserId then
+			btn.BackgroundColor3 = Color3.fromRGB(70, 130, 220)
+		else
+			btn.BackgroundColor3 = Color3.fromRGB(45, 52, 68)
+		end
+	end
+end
+
+local function rebuildTargetList()
+	for _, child in targetList:GetChildren() do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+	targetButtons = {}
+
+	local ord = 0
+	local function addEntry(userId: number, label: string)
+		ord += 1
+		local btn = makeButton(targetList, label, Color3.fromRGB(45, 52, 68))
+		btn.Size = UDim2.new(1, 0, 0, 24)
+		btn.TextXAlignment = Enum.TextXAlignment.Left
+		btn.LayoutOrder = ord
+		btn.MouseButton1Click:Connect(function()
+			selectedUserId = userId
+			refreshTargetHighlight()
+		end)
+		targetButtons[userId] = btn
+	end
+
+	-- "Me" primero
+	addEntry(player.UserId, "Me (" .. player.Name .. ")")
+	for _, p in Players:GetPlayers() do
+		if p ~= player then
+			addEntry(p.UserId, p.Name)
+		end
+	end
+
+	-- Si el target seleccionado se fue, volver a uno mismo.
+	if not targetButtons[selectedUserId] then
+		selectedUserId = player.UserId
+	end
+	refreshTargetHighlight()
+end
+
+Players.PlayerAdded:Connect(rebuildTargetList)
+Players.PlayerRemoving:Connect(function()
+	-- Diferir un frame para que GetPlayers ya no incluya al que sale.
+	task.defer(rebuildTargetList)
+end)
+
+-- ── Sección Give Premium Mount ───────────────────────────────────────────────
+
+local mountHeader = makeLabel(leftCol, "GIVE PREMIUM MOUNT")
+mountHeader.LayoutOrder = nextOrder()
+
+local mountGrid = Instance.new("Frame")
+mountGrid.BackgroundTransparency = 1
+-- AutomaticSize.Y para que crezca según las filas reales (5 mounts = 3 filas): con
+-- alto fijo la última fila se desbordaba y se pisaba con la sección de abajo.
+mountGrid.Size = UDim2.new(1, 0, 0, 0)
+mountGrid.AutomaticSize = Enum.AutomaticSize.Y
+mountGrid.LayoutOrder = nextOrder()
+mountGrid.Parent = leftCol
+do
+	local g = Instance.new("UIGridLayout")
+	g.CellSize = UDim2.new(0.5, -4, 0, 30)
+	g.CellPadding = UDim2.new(0, 8, 0, 6)
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = mountGrid
+end
+
+for _, mount in MountsConfig.Premium do
+	local btn = makeButton(mountGrid, mount.Name, Color3.fromRGB(120, 70, 200))
+	btn.MouseButton1Click:Connect(function()
+		Packets.AdminGiveMount:Fire(selectedUserId, mount.Name)
+	end)
+end
+
+-- ── Sección Give Wins ────────────────────────────────────────────────────────
+
+local winsHeader = makeLabel(leftCol, "GIVE WINS")
+winsHeader.LayoutOrder = nextOrder()
+
+local winsRow = Instance.new("Frame")
+winsRow.BackgroundTransparency = 1
+winsRow.Size = UDim2.new(1, 0, 0, 30)
+winsRow.LayoutOrder = nextOrder()
+winsRow.Parent = leftCol
+do
+	local l = Instance.new("UIListLayout")
+	l.FillDirection = Enum.FillDirection.Horizontal
+	l.Padding = UDim.new(0, 6)
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Parent = winsRow
+end
+
+for i, preset in WIN_PRESETS do
+	local btn = makeButton(winsRow, preset.label, Color3.fromRGB(210, 170, 40))
+	btn.Size = UDim2.new(0.25, -5, 1, 0)
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		Packets.AdminGiveWins:Fire(selectedUserId, preset.amount)
+	end)
+end
+
+-- ── Sección Slow ─────────────────────────────────────────────────────────────
+
+local slowBtn = makeButton(leftCol, "SLOW (10s → speed 1)", Color3.fromRGB(60, 160, 180))
+slowBtn.Size = UDim2.new(1, 0, 0, 34)
+slowBtn.LayoutOrder = nextOrder()
+slowBtn.MouseButton1Click:Connect(function()
+	Packets.AdminSlow:Fire(selectedUserId)
+end)
+
+-- ── Sección Ban (sistema propio de Roblox) ───────────────────────────────────
+
+local BAN_OPTIONS = {
+	{ label = "Ban 1 Day",   human = "1 day",     seconds = 86400 },
+	{ label = "Ban 1 Week",  human = "1 week",    seconds = 604800 },
+	{ label = "Ban Forever", human = "permanent", seconds = -1 },
+}
+
+local function targetName(): string
+	local target = Players:GetPlayerByUserId(selectedUserId)
+	return target and target.Name or ("UserId " .. tostring(selectedUserId))
+end
+
+local banHeader = makeLabel(rightCol, "BAN (Roblox)")
+banHeader.LayoutOrder = nextOrder()
+
+local banRow = Instance.new("Frame")
+banRow.BackgroundTransparency = 1
+banRow.Size = UDim2.new(1, 0, 0, 34)
+banRow.LayoutOrder = nextOrder()
+banRow.Parent = rightCol
+do
+	local l = Instance.new("UIListLayout")
+	l.FillDirection = Enum.FillDirection.Horizontal
+	l.Padding = UDim.new(0, 6)
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Parent = banRow
+end
+
+for i, opt in BAN_OPTIONS do
+	local btn = makeButton(banRow, opt.label, Color3.fromRGB(170, 40, 40))
+	btn.Size = UDim2.new(1 / 3, -4, 1, 0)
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		local msg = string.format("Ban %s?\nDuration: %s", targetName(), opt.human)
+		confirmAction(msg, "Confirm Ban", Color3.fromRGB(200, 50, 50), function()
+			Packets.AdminBan:Fire(selectedUserId, opt.seconds)
+		end)
+	end)
+end
+
+-- ── Sección Ban/Unban por UserId ─────────────────────────────────────────────
+-- Para jugadores que NO están en la sala: se escribe el UserId a mano.
+
+local byIdHeader = makeLabel(rightCol, "BY USERID (offline)")
+byIdHeader.LayoutOrder = nextOrder()
+
+local idBox = Instance.new("TextBox")
+idBox.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+idBox.BorderSizePixel = 0
+idBox.Font = Enum.Font.FredokaOne
+idBox.PlaceholderText = "Enter UserId..."
+idBox.PlaceholderColor3 = Color3.fromRGB(120, 130, 150)
+idBox.Text = ""
+idBox.TextColor3 = Color3.fromRGB(235, 240, 250)
+idBox.TextScaled = true
+idBox.ClearTextOnFocus = false
+idBox.Size = UDim2.new(1, 0, 0, 30)
+idBox.LayoutOrder = nextOrder()
+idBox.Parent = rightCol
+corner(idBox, 6)
+do
+	local con = Instance.new("UITextSizeConstraint")
+	con.MaxTextSize = 16
+	con.Parent = idBox
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.PaddingRight = UDim.new(0, 8)
+	pad.Parent = idBox
+end
+
+-- Devuelve el UserId escrito como entero positivo, o nil si es inválido.
+local function parseEnteredId(): number?
+	local n = tonumber(idBox.Text)
+	if not n then return nil end
+	if n ~= n or n == math.huge then return nil end
+	n = math.floor(n)
+	if n < 1 then return nil end
+	return n
+end
+
+-- Fila de bans por UserId (mismas tres duraciones)
+local byIdBanRow = Instance.new("Frame")
+byIdBanRow.BackgroundTransparency = 1
+byIdBanRow.Size = UDim2.new(1, 0, 0, 30)
+byIdBanRow.LayoutOrder = nextOrder()
+byIdBanRow.Parent = rightCol
+do
+	local l = Instance.new("UIListLayout")
+	l.FillDirection = Enum.FillDirection.Horizontal
+	l.Padding = UDim.new(0, 6)
+	l.SortOrder = Enum.SortOrder.LayoutOrder
+	l.Parent = byIdBanRow
+end
+
+for i, opt in BAN_OPTIONS do
+	local btn = makeButton(byIdBanRow, opt.label, Color3.fromRGB(170, 40, 40))
+	btn.Size = UDim2.new(1 / 3, -4, 1, 0)
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		local id = parseEnteredId()
+		if not id then
+			idBox.Text = ""
+			idBox.PlaceholderText = "Invalid UserId!"
+			return
+		end
+		local msg = string.format("Ban UserId %d?\nDuration: %s", id, opt.human)
+		confirmAction(msg, "Confirm Ban", Color3.fromRGB(200, 50, 50), function()
+			Packets.AdminBan:Fire(id, opt.seconds)
+		end)
+	end)
+end
+
+-- Botón de unban
+local unbanBtn = makeButton(rightCol, "UNBAN (by UserId)", Color3.fromRGB(60, 170, 90))
+unbanBtn.Size = UDim2.new(1, 0, 0, 34)
+unbanBtn.LayoutOrder = nextOrder()
+unbanBtn.MouseButton1Click:Connect(function()
+	local id = parseEnteredId()
+	if not id then
+		idBox.Text = ""
+		idBox.PlaceholderText = "Invalid UserId!"
+		return
+	end
+	local msg = string.format("Unban UserId %d?", id)
+	confirmAction(msg, "Confirm Unban", Color3.fromRGB(50, 170, 80), function()
+		Packets.AdminUnban:Fire(id)
+	end)
+end)
+
+-- ── Sección Mensaje global ───────────────────────────────────────────────────
+
+local msgHeader = makeLabel(rightCol, "GLOBAL MESSAGE (top banner)")
+msgHeader.LayoutOrder = nextOrder()
+
+local msgBox = Instance.new("TextBox")
+msgBox.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+msgBox.BorderSizePixel = 0
+msgBox.Font = Enum.Font.FredokaOne
+msgBox.PlaceholderText = "Enter message..."
+msgBox.PlaceholderColor3 = Color3.fromRGB(120, 130, 150)
+msgBox.Text = ""
+msgBox.TextColor3 = Color3.fromRGB(235, 240, 250)
+msgBox.TextScaled = true
+msgBox.ClearTextOnFocus = false
+msgBox.TextWrapped = true
+msgBox.Size = UDim2.new(1, 0, 0, 44)
+msgBox.LayoutOrder = nextOrder()
+msgBox.Parent = rightCol
+corner(msgBox, 6)
+do
+	local con = Instance.new("UITextSizeConstraint")
+	con.MaxTextSize = 16
+	con.Parent = msgBox
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.PaddingRight = UDim.new(0, 8)
+	pad.Parent = msgBox
+end
+
+-- Envía el broadcast leyendo el mensaje del TextBox. scope: "global" | "server" |
+-- "player" (con targetUserId).
+local function sendBroadcast(scope: string, targetUserId: number)
+	local text = (msgBox.Text:gsub("^%s+", ""):gsub("%s+$", ""))
+	if text == "" then
+		msgBox.Text = ""
+		msgBox.PlaceholderText = "Message is empty!"
+		return
+	end
+	Packets.AdminBroadcast:Fire(text, scope, targetUserId)
+end
+
+local msgGrid = Instance.new("Frame")
+msgGrid.BackgroundTransparency = 1
+msgGrid.Size = UDim2.new(1, 0, 0, 0)
+msgGrid.AutomaticSize = Enum.AutomaticSize.Y
+msgGrid.LayoutOrder = nextOrder()
+msgGrid.Parent = rightCol
+do
+	local g = Instance.new("UIGridLayout")
+	g.CellSize = UDim2.new(0.5, -4, 0, 30)
+	g.CellPadding = UDim2.new(0, 8, 0, 6)
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = msgGrid
+end
+
+-- Los cuatro destinos. "Selected Player" usa el target de la lista; "By UserId" el
+-- campo de arriba (mismo parseEnteredId de la sección de ban).
+local MSG_TARGETS = {
+	{ label = "All Servers",     order = 1, send = function() sendBroadcast("global", 0) end },
+	{ label = "This Server",     order = 2, send = function() sendBroadcast("server", 0) end },
+	{ label = "Selected Player", order = 3, send = function() sendBroadcast("player", selectedUserId) end },
+	{ label = "By UserId",       order = 4, send = function()
+		local id = parseEnteredId()
+		if not id then
+			idBox.Text = ""
+			idBox.PlaceholderText = "Invalid UserId!"
+			return
+		end
+		sendBroadcast("player", id)
+	end },
+}
+
+for _, t in MSG_TARGETS do
+	local btn = makeButton(msgGrid, t.label, Color3.fromRGB(60, 120, 190))
+	btn.LayoutOrder = t.order
+	btn.MouseButton1Click:Connect(t.send)
+end
+
+-- ── Toggle ───────────────────────────────────────────────────────────────────
+
+toggleBtn.MouseButton1Click:Connect(function()
+	panel.Visible = not panel.Visible
+	if panel.Visible then
+		rebuildTargetList()
+	end
+end)
+
+rebuildTargetList()

@@ -20,15 +20,24 @@ function PlayTimeConfig.getMultiplier(elapsedSeconds: number): number
 	return result
 end
 
--- Returns 0–1 fill ratio within the current tier segment
+-- Returns 0–1 GLOBAL fill ratio across the whole bar. Cada tramo entre tiers ocupa
+-- una parte igual de la barra (con 4 tiers → 3 tramos → 33% cada uno), de modo que
+-- el fill llega a cada marcador (x2, x5, x10) justo al cumplirse su MinSeconds.
+-- Antes devolvía el progreso DENTRO del tramo actual, así que la barra entera se
+-- llenaba con el primer tier y el x2 se alcanzaba mucho antes de tiempo.
 function PlayTimeConfig.getProgress(elapsedSeconds: number): number
+	local segments = #PlayTimeConfig.Tiers - 1
+	if segments <= 0 then
+		return 1
+	end
 	for i, tier in PlayTimeConfig.Tiers do
 		local next = PlayTimeConfig.Tiers[i + 1]
 		if not next then
 			return 1
 		end
 		if elapsedSeconds < next.MinSeconds then
-			return (elapsedSeconds - tier.MinSeconds) / (next.MinSeconds - tier.MinSeconds)
+			local within = (elapsedSeconds - tier.MinSeconds) / (next.MinSeconds - tier.MinSeconds)
+			return ((i - 1) + within) / segments
 		end
 	end
 	return 1
