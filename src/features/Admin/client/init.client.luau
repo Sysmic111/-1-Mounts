@@ -8,10 +8,11 @@
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local AdminConfig      = require(ReplicatedStorage.Shared.AdminConfig)
-local MountsConfig     = require(ReplicatedStorage.Shared.MountsConfig)
-local AdminAbuseConfig = require(ReplicatedStorage.Shared.AdminAbuseConfig)
-local Packets          = require(ReplicatedStorage.Shared.Packets)
+local AdminConfig          = require(ReplicatedStorage.Shared.AdminConfig)
+local MountsConfig         = require(ReplicatedStorage.Shared.MountsConfig)
+local AdminAbuseConfig     = require(ReplicatedStorage.Shared.AdminAbuseConfig)
+local AdminTreadmillConfig = require(ReplicatedStorage.Shared.AdminTreadmillConfig)
+local Packets              = require(ReplicatedStorage.Shared.Packets)
 
 local player = Players.LocalPlayer
 
@@ -401,6 +402,42 @@ slowBtn.Size = UDim2.new(1, 0, 0, 34)
 slowBtn.LayoutOrder = nextOrder()
 slowBtn.MouseButton1Click:Connect(function()
 	Packets.AdminSlow:Fire(selectedUserId)
+end)
+
+-- ── Sección Treadmill de prueba (ServerStorage.AdminAbuse.Treadmill) ────────
+-- Config-driven: los multiplicadores salen de AdminTreadmillConfig, así que
+-- agregar/quitar un preset es tocar esa lista, no este archivo.
+
+local treadmillHeader = makeLabel(leftCol, "TEST TREADMILL (spawn)")
+treadmillHeader.LayoutOrder = nextOrder()
+
+local treadmillGrid = Instance.new("Frame")
+treadmillGrid.BackgroundTransparency = 1
+treadmillGrid.Size = UDim2.new(1, 0, 0, 0)
+treadmillGrid.AutomaticSize = Enum.AutomaticSize.Y
+treadmillGrid.LayoutOrder = nextOrder()
+treadmillGrid.Parent = leftCol
+do
+	local g = Instance.new("UIGridLayout")
+	g.CellSize = UDim2.new(1 / 3, -6, 0, 30)
+	g.CellPadding = UDim2.new(0, 8, 0, 6)
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = treadmillGrid
+end
+
+for i, multiplier in AdminTreadmillConfig.Multipliers do
+	local btn = makeButton(treadmillGrid, "x" .. tostring(multiplier), Color3.fromRGB(60, 160, 180))
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		Packets.AdminTreadmillSpawn:Fire(multiplier)
+	end)
+end
+
+local treadmillReturnBtn = makeButton(leftCol, "Return treadmill to storage", Color3.fromRGB(70, 78, 96))
+treadmillReturnBtn.Size = UDim2.new(1, 0, 0, 30)
+treadmillReturnBtn.LayoutOrder = nextOrder()
+treadmillReturnBtn.MouseButton1Click:Connect(function()
+	Packets.AdminTreadmillReturn:Fire()
 end)
 
 -- ── Sección Ban (sistema propio de Roblox) ───────────────────────────────────

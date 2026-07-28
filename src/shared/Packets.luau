@@ -89,4 +89,11 @@ return {
 	-- Servidor → cliente: estado actual. active=false limpia el banner. endTime es
 	-- un os.time() absoluto (0 si el preset es estático, sin cuenta regresiva).
 	AdminAbuseState   = Packet("AdminAbuseState", Packet.Boolean8, Packet.String, Packet.NumberF64),
+
+	-- Treadmill de prueba en ServerStorage.AdminAbuse.Treadmill (distinto del sistema
+	-- de arriba, solo comparten carpeta por nombre). Efecto local a ESTE server nada
+	-- más: mueve el modelo Workspace<->ServerStorage, no hay MessagingService.
+	-- multiplier se valida contra AdminTreadmillConfig en el servidor.
+	AdminTreadmillSpawn  = Packet("AdminTreadmillSpawn", Packet.NumberU16),
+	AdminTreadmillReturn = Packet("AdminTreadmillReturn"),
 }

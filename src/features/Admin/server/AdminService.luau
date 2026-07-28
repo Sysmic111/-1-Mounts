@@ -7,13 +7,17 @@
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage     = game:GetService("ServerStorage")
+local CollectionService = game:GetService("CollectionService")
 local MessagingService  = game:GetService("MessagingService")
+local Workspace         = game:GetService("Workspace")
 
-local AdminConfig     = require(ReplicatedStorage.Shared.AdminConfig)
-local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
-local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
-local AdminAbuseConfig = require(ReplicatedStorage.Shared.AdminAbuseConfig)
-local Packets         = require(ReplicatedStorage.Shared.Packets)
+local AdminConfig          = require(ReplicatedStorage.Shared.AdminConfig)
+local MountsConfig         = require(ReplicatedStorage.Shared.MountsConfig)
+local SpeedConfig          = require(ReplicatedStorage.Shared.SpeedConfig)
+local AdminAbuseConfig     = require(ReplicatedStorage.Shared.AdminAbuseConfig)
+local AdminTreadmillConfig = require(ReplicatedStorage.Shared.AdminTreadmillConfig)
+local Packets              = require(ReplicatedStorage.Shared.Packets)
 
 type DataServiceServer = {
 	hasProfile: (self: DataServiceServer, player: Player) -> boolean,
@@ -54,6 +58,11 @@ local AdminService = {
 	-- jugadores que entran después de que se activó). endTime == 0 => sin cuenta
 	-- regresiva (mensaje estático).
 	_adminAbuse  = { active = false, message = "", endTime = 0 } :: { active: boolean, message: string, endTime: number },
+	-- Referencia cacheada al modelo del treadmill de prueba (ServerStorage.AdminAbuse
+	-- .Treadmill). Se guarda la PRIMERA vez que se encuentra: como el Instance no se
+	-- invalida al reparentar, sigue siendo válida aunque el modelo viaje entre
+	-- ServerStorage y Workspace.
+	_adminTreadmill = nil :: Model?,
 }
 
 local function getHumanoid(player: Player): Humanoid?
@@ -216,9 +225,72 @@ function AdminService:init(dataService: DataServiceServer): ()
 		end
 	end)
 
+	Packets.AdminTreadmillSpawn.OnServerEvent:Connect(function(player: Player, multiplier: number)
+		if not AdminConfig.isAdmin(player.UserId) then return end
+		if type(multiplier) ~= "number" then return end
+		if not AdminTreadmillConfig.isAllowed(multiplier) then return end
+
+		self:_spawnAdminTreadmill(multiplier)
+	end)
+
+	Packets.AdminTreadmillReturn.OnServerEvent:Connect(function(player: Player)
+		if not AdminConfig.isAdmin(player.UserId) then return end
+
+		self:_returnAdminTreadmill()
+	end)
+
 	Players.PlayerRemoving:Connect(function(player)
 		self._slowUntil[player] = nil
 	end)
+end
+
+-- Encuentra (y cachea) el modelo del treadmill de prueba. Se asume que arranca en
+-- ServerStorage.AdminAbuse.Treadmill al bootear el server (así viene en el place).
+function AdminService:_getAdminTreadmill(): Model?
+	if self._adminTreadmill then
+		return self._adminTreadmill
+	end
+
+	local folder = ServerStorage:FindFirstChild("AdminAbuse")
+	local model = folder and folder:FindFirstChild("Treadmill")
+	if model and model:IsA("Model") then
+		self._adminTreadmill = model
+	end
+	return self._adminTreadmill
+end
+
+function AdminService:_spawnAdminTreadmill(multiplier: number): ()
+	local model = self:_getAdminTreadmill()
+	if not model then
+		warn("[Admin] No se encontró ServerStorage.AdminAbuse.Treadmill")
+		return
+	end
+
+	model:SetAttribute("Multiplier", multiplier)
+
+	local sign = model:FindFirstChild("Sign")
+	local surfaceGui = sign and sign:FindFirstChild("SurfaceGui")
+	local quantity = surfaceGui and surfaceGui:FindFirstChild("Quantity")
+	if quantity and quantity:IsA("TextLabel") then
+		quantity.Text = "x" .. tostring(multiplier)
+	end
+
+	-- El resto del juego (SpeedService, cliente) detecta el treadmill por este tag +
+	-- estar en Workspace; sin el tag no cuenta como treadmill válido.
+	CollectionService:AddTag(model, "Treadmill")
+	model.Parent = Workspace
+end
+
+function AdminService:_returnAdminTreadmill(): ()
+	local model = self:_getAdminTreadmill()
+	if not model then return end
+
+	CollectionService:RemoveTag(model, "Treadmill")
+
+	local folder = ServerStorage:FindFirstChild("AdminAbuse")
+	if folder then
+		model.Parent = folder
+	end
 end
 
 -- Aplica el estado LOCALMENTE (este server): guarda el cache y lo manda a todos
