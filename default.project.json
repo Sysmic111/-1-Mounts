@@ -95,6 +95,9 @@
         "Admin": {
           "$path": "src/features/Admin/client"
         },
+        "AdminAbuse": {
+          "$path": "src/features/AdminAbuse/client"
+        },
         "Agility": {
           "$path": "src/features/Agility/client"
         },

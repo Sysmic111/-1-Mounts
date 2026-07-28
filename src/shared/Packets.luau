@@ -79,4 +79,14 @@ return {
 	-- el badge de Roblox). Lo recibe el feature Broadcast (que corren TODOS los
 	-- jugadores, no solo admins).
 	ShowBroadcast     = Packet("ShowBroadcast", Packet.String, Packet.String, Packet.Boolean8),
+
+	-- Admin Abuse: el cliente admin dispara un presetId (el mensaje/duración los
+	-- resuelve el SERVIDOR desde AdminAbuseConfig, nunca se confía en texto libre
+	-- del cliente). Cross-server vía MessagingService, igual que AdminBroadcast.
+	AdminAbuseTrigger = Packet("AdminAbuseTrigger", Packet.String),
+	-- Desactiva la cuenta regresiva/mensaje activo en TODOS los servers.
+	AdminAbuseCancel  = Packet("AdminAbuseCancel"),
+	-- Servidor → cliente: estado actual. active=false limpia el banner. endTime es
+	-- un os.time() absoluto (0 si el preset es estático, sin cuenta regresiva).
+	AdminAbuseState   = Packet("AdminAbuseState", Packet.Boolean8, Packet.String, Packet.NumberF64),
 }

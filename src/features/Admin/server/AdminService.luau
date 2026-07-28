@@ -9,10 +9,11 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MessagingService  = game:GetService("MessagingService")
 
-local AdminConfig  = require(ReplicatedStorage.Shared.AdminConfig)
-local MountsConfig = require(ReplicatedStorage.Shared.MountsConfig)
-local SpeedConfig  = require(ReplicatedStorage.Shared.SpeedConfig)
-local Packets      = require(ReplicatedStorage.Shared.Packets)
+local AdminConfig     = require(ReplicatedStorage.Shared.AdminConfig)
+local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local AdminAbuseConfig = require(ReplicatedStorage.Shared.AdminAbuseConfig)
+local Packets         = require(ReplicatedStorage.Shared.Packets)
 
 type DataServiceServer = {
 	hasProfile: (self: DataServiceServer, player: Player) -> boolean,
@@ -42,10 +43,17 @@ local BAN_LABELS = {
 local BROADCAST_TOPIC = "AdminBroadcast"
 local MAX_MESSAGE_LEN = 150
 
+-- Admin Abuse: topic de MessagingService (cross-server), separado del de Broadcast.
+local ADMIN_ABUSE_TOPIC = "AdminAbuse"
+
 local AdminService = {
 	_dataService = nil :: DataServiceServer?,
 	-- [Player] = os.clock() en que expira el slow. Presencia = hay loop activo.
 	_slowUntil   = {} :: { [Player]: number },
+	-- Estado actual de Admin Abuse en ESTE server (cacheado para sincronizar a
+	-- jugadores que entran después de que se activó). endTime == 0 => sin cuenta
+	-- regresiva (mensaje estático).
+	_adminAbuse  = { active = false, message = "", endTime = 0 } :: { active: boolean, message: string, endTime: number },
 }
 
 local function getHumanoid(player: Player): Humanoid?
@@ -162,9 +170,78 @@ function AdminService:init(dataService: DataServiceServer): ()
 		end
 	end)
 
+	Packets.AdminAbuseTrigger.OnServerEvent:Connect(function(player: Player, presetId: string)
+		if not AdminConfig.isAdmin(player.UserId) then return end
+		if type(presetId) ~= "string" then return end
+
+		-- El mensaje y la duración se resuelven SIEMPRE del config del servidor: el
+		-- cliente solo manda un id, nunca texto libre (evita spoofear el mensaje).
+		local preset = AdminAbuseConfig.byId[presetId]
+		if not preset then return end
+
+		local endTime = if preset.DurationSeconds > 0 then os.time() + preset.DurationSeconds else 0
+		self:_applyAdminAbuseState(true, preset.Message, endTime)
+		self:_publishAdminAbuse(true, preset.Message, endTime)
+	end)
+
+	Packets.AdminAbuseCancel.OnServerEvent:Connect(function(player: Player)
+		if not AdminConfig.isAdmin(player.UserId) then return end
+
+		self:_applyAdminAbuseState(false, "", 0)
+		self:_publishAdminAbuse(false, "", 0)
+	end)
+
+	-- Suscripción cross-server para Admin Abuse: separado del topic de Broadcast.
+	task.spawn(function()
+		local ok, err = pcall(function()
+			MessagingService:SubscribeAsync(ADMIN_ABUSE_TOPIC, function(packet: any)
+				local data = packet.Data
+				if type(data) ~= "table" then return end
+				if data.j == game.JobId then return end -- ignorar nuestro propio eco
+				self:_applyAdminAbuseState(data.a == true, tostring(data.m or ""), tonumber(data.e) or 0)
+			end)
+		end)
+		if not ok then
+			warn("[Admin] SubscribeAsync (admin abuse) falló: " .. tostring(err))
+		end
+	end)
+
+	Players.PlayerAdded:Connect(function(newPlayer)
+		-- Sincroniza al jugador recién llegado con el estado actual DE ESTE server
+		-- (si Admin Abuse ya está activo, se lo mandamos directo en vez de esperar
+		-- al próximo trigger/publish).
+		local state = self._adminAbuse
+		if state.active then
+			Packets.AdminAbuseState:FireClient(newPlayer, true, state.message, state.endTime)
+		end
+	end)
+
 	Players.PlayerRemoving:Connect(function(player)
 		self._slowUntil[player] = nil
 	end)
+end
+
+-- Aplica el estado LOCALMENTE (este server): guarda el cache y lo manda a todos
+-- los clientes ya conectados acá.
+function AdminService:_applyAdminAbuseState(active: boolean, message: string, endTime: number): ()
+	self._adminAbuse = { active = active, message = message, endTime = endTime }
+	Packets.AdminAbuseState:Fire(active, message, endTime)
+end
+
+-- Publica a los demás servers vía MessagingService. j = JobId para que el server
+-- emisor ignore su propio eco (ya aplicó el estado localmente).
+function AdminService:_publishAdminAbuse(active: boolean, message: string, endTime: number): ()
+	local ok, err = pcall(function()
+		MessagingService:PublishAsync(ADMIN_ABUSE_TOPIC, {
+			a = active,
+			m = message,
+			e = endTime,
+			j = game.JobId,
+		})
+	end)
+	if not ok then
+		warn("[Admin] PublishAsync (admin abuse) falló: " .. tostring(err))
+	end
 end
 
 function AdminService:_ban(targetUserId: number, durationSeconds: number): ()

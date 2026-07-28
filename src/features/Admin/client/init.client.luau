@@ -8,9 +8,10 @@
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local AdminConfig  = require(ReplicatedStorage.Shared.AdminConfig)
-local MountsConfig = require(ReplicatedStorage.Shared.MountsConfig)
-local Packets      = require(ReplicatedStorage.Shared.Packets)
+local AdminConfig      = require(ReplicatedStorage.Shared.AdminConfig)
+local MountsConfig     = require(ReplicatedStorage.Shared.MountsConfig)
+local AdminAbuseConfig = require(ReplicatedStorage.Shared.AdminAbuseConfig)
+local Packets          = require(ReplicatedStorage.Shared.Packets)
 
 local player = Players.LocalPlayer
 
@@ -610,6 +611,46 @@ for _, t in MSG_TARGETS do
 	btn.LayoutOrder = t.order
 	btn.MouseButton1Click:Connect(t.send)
 end
+
+-- ── Sección Admin Abuse ──────────────────────────────────────────────────────
+-- Config-driven: los botones salen de AdminAbuseConfig.Presets, así que agregar
+-- uno nuevo es agregar una entrada ahí, sin tocar este archivo. Todo lo que ve el
+-- jugador se dispara global (todos los servers) — por eso pasa por confirmAction.
+
+local abuseHeader = makeLabel(rightCol, "ADMIN ABUSE (all servers)")
+abuseHeader.LayoutOrder = nextOrder()
+
+local abuseGrid = Instance.new("Frame")
+abuseGrid.BackgroundTransparency = 1
+abuseGrid.Size = UDim2.new(1, 0, 0, 0)
+abuseGrid.AutomaticSize = Enum.AutomaticSize.Y
+abuseGrid.LayoutOrder = nextOrder()
+abuseGrid.Parent = rightCol
+do
+	local g = Instance.new("UIGridLayout")
+	g.CellSize = UDim2.new(1, 0, 0, 30)
+	g.CellPadding = UDim2.new(0, 0, 0, 6)
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = abuseGrid
+end
+
+for i, preset in AdminAbuseConfig.Presets do
+	local btn = makeButton(abuseGrid, preset.ButtonLabel, Color3.fromRGB(150, 50, 130))
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		local msg = string.format("Trigger \"%s\" for ALL servers?", preset.ButtonLabel)
+		confirmAction(msg, "Confirm", Color3.fromRGB(150, 50, 130), function()
+			Packets.AdminAbuseTrigger:Fire(preset.Id)
+		end)
+	end)
+end
+
+local abuseDeactivateBtn = makeButton(rightCol, "Deactivate (all servers)", Color3.fromRGB(70, 78, 96))
+abuseDeactivateBtn.Size = UDim2.new(1, 0, 0, 30)
+abuseDeactivateBtn.LayoutOrder = nextOrder()
+abuseDeactivateBtn.MouseButton1Click:Connect(function()
+	Packets.AdminAbuseCancel:Fire()
+end)
 
 -- ── Toggle ───────────────────────────────────────────────────────────────────
 
