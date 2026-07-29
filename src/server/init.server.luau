@@ -31,6 +31,7 @@ local FriendsBoostService = require(ServerScriptService.FriendsBoost.FriendsBoos
 local GroupBonusService = require(ServerScriptService.GroupBonus.GroupBonusService)
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 local AdminService     = require(ServerScriptService.Admin.AdminService)
+local WeatherService   = require(ServerScriptService.Weather.WeatherService)
 local FunnelService    = require(script.FunnelService)
 
 DataService:init({
@@ -74,6 +75,10 @@ DataService:init({
 		-- nunca bajan al gastar Wins ni al rebirthear.
 		TotalSpeedEarned   = 0,
 		TotalWinsEarned    = 0,
+		-- Segundos jugados de por vida (PlayTimeService). Se acredita cada minuto y
+		-- al salir, así un crash pierde <1 min en vez de la sesión entera. OJO: es
+		-- distinto del playtime de SESIÓN que da el multiplicador, que no se guarda.
+		TotalPlayTime      = 0,
 		AnalyticsCohort           = "",
 		AnalyticsSchemaVersion    = 0,
 		AnalyticsOnboardingStep   = 0,
@@ -100,7 +105,8 @@ RebirthService:init(DataService)
 RebirthService:setSpeedService(SpeedService)
 WinsService:init(DataService, RobuxService)
 EnvironmentService:init()
-PlayTimeService:init()
+-- Necesita DataService para acumular TotalPlayTime (estadística de por vida).
+PlayTimeService:init(DataService)
 PlayTimeService:setSpeedService(SpeedService)
 SpeedService:setPlayTimeService(PlayTimeService)
 AgilityService:init(DataService)
@@ -132,6 +138,10 @@ TrailsService:setMorphService(MorphService)
 SpeedService:setTrailsService(TrailsService)
 DailyService:init(DataService)
 AdminService:init(DataService)
+-- Weather: reparte su bonus vía atributos (WeatherBoost / WeatherWinsBoost) y llama
+-- a updateTotalMultiplier, así que el SpeedService tiene que estar ya inicializado.
+WeatherService:setSpeedService(SpeedService)
+WeatherService:init()
 
 -- ── Leaderstats ───────────────────────────────────────────────────────────────
 

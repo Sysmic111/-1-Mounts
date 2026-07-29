@@ -12,6 +12,7 @@ local AdminConfig          = require(ReplicatedStorage.Shared.AdminConfig)
 local MountsConfig         = require(ReplicatedStorage.Shared.MountsConfig)
 local AdminAbuseConfig     = require(ReplicatedStorage.Shared.AdminAbuseConfig)
 local AdminTreadmillConfig = require(ReplicatedStorage.Shared.AdminTreadmillConfig)
+local WeatherConfig        = require(ReplicatedStorage.Shared.WeatherConfig)
 local Packets              = require(ReplicatedStorage.Shared.Packets)
 
 local player = Players.LocalPlayer
@@ -216,44 +217,95 @@ do
 	con.Parent = title
 end
 
--- ── Cuerpo en dos columnas ────────────────────────────────────────────────────
--- El título va full-width arriba; debajo, dos columnas lado a lado para que el
--- panel no se estire tanto hacia abajo.
+-- ── Pestañas ──────────────────────────────────────────────────────────────────
+-- El panel tiene dos páginas: GENERAL (moderación y herramientas de siempre) y
+-- EVENTS (todo lo que es un evento en vivo: admin abuse, weather, treadmill de
+-- prueba y el reward). Solo una es visible a la vez; el resto del archivo se limita
+-- a parentar cada sección a la columna de la página que le toca.
+--
+-- Cada página tiene su PROPIO body de dos columnas: si compartieran uno, ocultar una
+-- página dejaría huecos en la otra.
 
-local body = Instance.new("Frame")
-body.Name = "Body"
-body.BackgroundTransparency = 1
-body.Size = UDim2.new(1, 0, 0, 0)
-body.AutomaticSize = Enum.AutomaticSize.Y
-body.LayoutOrder = nextOrder()
-body.Parent = panel
+local tabBar = Instance.new("Frame")
+tabBar.Name = "Tabs"
+tabBar.BackgroundTransparency = 1
+tabBar.Size = UDim2.new(1, 0, 0, 30)
+tabBar.LayoutOrder = nextOrder()
+tabBar.Parent = panel
 do
 	local l = Instance.new("UIListLayout")
 	l.FillDirection = Enum.FillDirection.Horizontal
-	l.HorizontalAlignment = Enum.HorizontalAlignment.Left
-	l.VerticalAlignment = Enum.VerticalAlignment.Top
-	l.Padding = UDim.new(0, 12)
 	l.SortOrder = Enum.SortOrder.LayoutOrder
-	l.Parent = body
+	l.Padding = UDim.new(0, 8)
+	l.Parent = tabBar
 end
 
-local function makeColumn(columnOrder: number): Frame
-	local col = Instance.new("Frame")
-	col.BackgroundTransparency = 1
-	col.Size = UDim2.new(0, 258, 0, 0)
-	col.AutomaticSize = Enum.AutomaticSize.Y
-	col.LayoutOrder = columnOrder
-	col.Parent = body
-	local l = Instance.new("UIListLayout")
-	l.FillDirection = Enum.FillDirection.Vertical
-	l.SortOrder = Enum.SortOrder.LayoutOrder
-	l.Padding = UDim.new(0, 9)
-	l.Parent = col
-	return col
+local function makePage(): (Frame, Frame, Frame)
+	local page = Instance.new("Frame")
+	page.BackgroundTransparency = 1
+	page.Size = UDim2.new(1, 0, 0, 0)
+	page.AutomaticSize = Enum.AutomaticSize.Y
+	page.LayoutOrder = nextOrder()
+	page.Parent = panel
+	do
+		local l = Instance.new("UIListLayout")
+		l.FillDirection = Enum.FillDirection.Horizontal
+		l.HorizontalAlignment = Enum.HorizontalAlignment.Left
+		l.VerticalAlignment = Enum.VerticalAlignment.Top
+		l.Padding = UDim.new(0, 12)
+		l.SortOrder = Enum.SortOrder.LayoutOrder
+		l.Parent = page
+	end
+
+	local function makeColumn(columnOrder: number): Frame
+		local col = Instance.new("Frame")
+		col.BackgroundTransparency = 1
+		col.Size = UDim2.new(0, 258, 0, 0)
+		col.AutomaticSize = Enum.AutomaticSize.Y
+		col.LayoutOrder = columnOrder
+		col.Parent = page
+		local l = Instance.new("UIListLayout")
+		l.FillDirection = Enum.FillDirection.Vertical
+		l.SortOrder = Enum.SortOrder.LayoutOrder
+		l.Padding = UDim.new(0, 9)
+		l.Parent = col
+		return col
+	end
+
+	return page, makeColumn(1), makeColumn(2)
 end
 
-local leftCol  = makeColumn(1)
-local rightCol = makeColumn(2)
+-- GENERAL: moderación y herramientas de siempre. EVENTS: todo lo que es un evento
+-- en vivo (admin abuse, weather, treadmill de prueba, reward).
+local generalPage, leftCol, rightCol = makePage()
+local eventsPage, eventsLeftCol, eventsRightCol = makePage()
+
+local TAB_ACTIVE   = Color3.fromRGB(200, 60, 60)
+local TAB_INACTIVE = Color3.fromRGB(52, 58, 74)
+
+local generalTabBtn = makeButton(tabBar, "GENERAL", TAB_ACTIVE)
+generalTabBtn.Size = UDim2.new(0.5, -4, 1, 0)
+generalTabBtn.LayoutOrder = 1
+
+local eventsTabBtn = makeButton(tabBar, "EVENTS", TAB_INACTIVE)
+eventsTabBtn.Size = UDim2.new(0.5, -4, 1, 0)
+eventsTabBtn.LayoutOrder = 2
+
+local function selectTab(showEvents: boolean)
+	generalPage.Visible = not showEvents
+	eventsPage.Visible = showEvents
+	generalTabBtn.BackgroundColor3 = if showEvents then TAB_INACTIVE else TAB_ACTIVE
+	eventsTabBtn.BackgroundColor3 = if showEvents then TAB_ACTIVE else TAB_INACTIVE
+end
+
+generalTabBtn.MouseButton1Click:Connect(function()
+	selectTab(false)
+end)
+eventsTabBtn.MouseButton1Click:Connect(function()
+	selectTab(true)
+end)
+
+selectTab(false)
 
 -- ── Sección Target ───────────────────────────────────────────────────────────
 
@@ -407,8 +459,12 @@ end)
 -- ── Sección Treadmill de prueba (ServerStorage.AdminAbuse.Treadmill) ────────
 -- Config-driven: los multiplicadores salen de AdminTreadmillConfig, así que
 -- agregar/quitar un preset es tocar esa lista, no este archivo.
+--
+-- Es CROSS-SERVER y persistido, igual que el reward: aparece en todos los servers,
+-- incluidos los que Roblox cree durante el evento. Por eso pide confirmación —
+-- multiplica el Speed de TODO el juego mientras esté puesta.
 
-local treadmillHeader = makeLabel(leftCol, "TEST TREADMILL (spawn)")
+local treadmillHeader = makeLabel(eventsLeftCol, "TEST TREADMILL (all servers)")
 treadmillHeader.LayoutOrder = nextOrder()
 
 local treadmillGrid = Instance.new("Frame")
@@ -416,7 +472,7 @@ treadmillGrid.BackgroundTransparency = 1
 treadmillGrid.Size = UDim2.new(1, 0, 0, 0)
 treadmillGrid.AutomaticSize = Enum.AutomaticSize.Y
 treadmillGrid.LayoutOrder = nextOrder()
-treadmillGrid.Parent = leftCol
+treadmillGrid.Parent = eventsLeftCol
 do
 	local g = Instance.new("UIGridLayout")
 	g.CellSize = UDim2.new(1 / 3, -6, 0, 30)
@@ -429,11 +485,17 @@ for i, multiplier in AdminTreadmillConfig.Multipliers do
 	local btn = makeButton(treadmillGrid, "x" .. tostring(multiplier), Color3.fromRGB(60, 160, 180))
 	btn.LayoutOrder = i
 	btn.MouseButton1Click:Connect(function()
-		Packets.AdminTreadmillSpawn:Fire(multiplier)
+		local msg = string.format(
+			"Spawn a x%s treadmill in ALL servers?\nAuto-returns after 3h if you forget.",
+			tostring(multiplier)
+		)
+		confirmAction(msg, "Spawn", Color3.fromRGB(60, 160, 180), function()
+			Packets.AdminTreadmillSpawn:Fire(multiplier)
+		end)
 	end)
 end
 
-local treadmillReturnBtn = makeButton(leftCol, "Return treadmill to storage", Color3.fromRGB(70, 78, 96))
+local treadmillReturnBtn = makeButton(eventsLeftCol, "Return treadmill (all servers)", Color3.fromRGB(70, 78, 96))
 treadmillReturnBtn.Size = UDim2.new(1, 0, 0, 30)
 treadmillReturnBtn.LayoutOrder = nextOrder()
 treadmillReturnBtn.MouseButton1Click:Connect(function()
@@ -654,7 +716,7 @@ end
 -- uno nuevo es agregar una entrada ahí, sin tocar este archivo. Todo lo que ve el
 -- jugador se dispara global (todos los servers) — por eso pasa por confirmAction.
 
-local abuseHeader = makeLabel(rightCol, "ADMIN ABUSE (all servers)")
+local abuseHeader = makeLabel(eventsLeftCol, "ADMIN ABUSE (all servers)")
 abuseHeader.LayoutOrder = nextOrder()
 
 local abuseGrid = Instance.new("Frame")
@@ -662,7 +724,7 @@ abuseGrid.BackgroundTransparency = 1
 abuseGrid.Size = UDim2.new(1, 0, 0, 0)
 abuseGrid.AutomaticSize = Enum.AutomaticSize.Y
 abuseGrid.LayoutOrder = nextOrder()
-abuseGrid.Parent = rightCol
+abuseGrid.Parent = eventsLeftCol
 do
 	local g = Instance.new("UIGridLayout")
 	g.CellSize = UDim2.new(1, 0, 0, 30)
@@ -682,11 +744,99 @@ for i, preset in AdminAbuseConfig.Presets do
 	end)
 end
 
-local abuseDeactivateBtn = makeButton(rightCol, "Deactivate (all servers)", Color3.fromRGB(70, 78, 96))
+local abuseDeactivateBtn = makeButton(eventsLeftCol, "Deactivate (all servers)", Color3.fromRGB(70, 78, 96))
 abuseDeactivateBtn.Size = UDim2.new(1, 0, 0, 30)
 abuseDeactivateBtn.LayoutOrder = nextOrder()
 abuseDeactivateBtn.MouseButton1Click:Connect(function()
 	Packets.AdminAbuseCancel:Fire()
+end)
+
+-- ── Sección Weather Events ───────────────────────────────────────────────────
+-- Config-driven igual que Admin Abuse: los botones salen de WeatherConfig.Presets.
+-- Cada uno usa el UIColor de su preset para reconocerlos de un vistazo. El evento
+-- NO caduca solo: queda activo hasta que alguien pulse "Remove weather".
+
+local weatherHeader = makeLabel(eventsRightCol, "WEATHER EVENT (all servers)")
+weatherHeader.LayoutOrder = nextOrder()
+
+local weatherGrid = Instance.new("Frame")
+weatherGrid.BackgroundTransparency = 1
+weatherGrid.Size = UDim2.new(1, 0, 0, 0)
+weatherGrid.AutomaticSize = Enum.AutomaticSize.Y
+weatherGrid.LayoutOrder = nextOrder()
+weatherGrid.Parent = eventsRightCol
+do
+	local g = Instance.new("UIGridLayout")
+	g.CellSize = UDim2.new(0.5, -4, 0, 30)
+	g.CellPadding = UDim2.new(0, 8, 0, 6)
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = weatherGrid
+end
+
+for i, preset in WeatherConfig.Presets do
+	local btn = makeButton(weatherGrid, preset.ButtonLabel, preset.UIColor)
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		local msg = string.format(
+			"Activate %s in ALL servers?\nx%s Speed, x%s Wins.",
+			preset.DisplayName,
+			tostring(preset.Multiplier),
+			tostring(preset.WinsMultiplier)
+		)
+		confirmAction(msg, "Activate", preset.UIColor, function()
+			Packets.AdminWeatherTrigger:Fire(preset.Id)
+		end)
+	end)
+end
+
+local weatherClearBtn = makeButton(eventsRightCol, "Remove weather (all servers)", Color3.fromRGB(70, 78, 96))
+weatherClearBtn.Size = UDim2.new(1, 0, 0, 30)
+weatherClearBtn.LayoutOrder = nextOrder()
+weatherClearBtn.MouseButton1Click:Connect(function()
+	Packets.AdminWeatherClear:Fire()
+end)
+
+-- ── Sección Reward de Admin Abuse (Workspace.AdminUtils) ─────────────────────
+-- Abrir quita el Barrier (se guarda en ServerStorage) y habilita el Reward del final
+-- del obby, que concede la montura Vezkitt al tocarlo. Cerrar devuelve el Barrier a
+-- su sitio y el Reward deja de conceder nada.
+--
+-- Es la ÚNICA forma de conseguir esa montura, así que ambas acciones piden
+-- confirmación: abrirlo sin querer regala contenido exclusivo en todos los servers.
+--
+-- El estado se persiste, así que los servers que Roblox cree DURANTE el evento (que
+-- son muchos: el evento mismo es lo que trae la avalancha de gente) arrancan ya con
+-- el obby abierto. La duración y el auto-cierre los decide el servidor.
+
+local rewardHeader = makeLabel(eventsRightCol, "VEZKITT REWARD (all servers)")
+rewardHeader.LayoutOrder = nextOrder()
+
+local rewardOpenBtn = makeButton(eventsRightCol, "Open obby (remove barrier)", Color3.fromRGB(60, 170, 90))
+rewardOpenBtn.Size = UDim2.new(1, 0, 0, 30)
+rewardOpenBtn.LayoutOrder = nextOrder()
+rewardOpenBtn.MouseButton1Click:Connect(function()
+	confirmAction(
+		"Remove the barrier and enable the Vezkitt reward in ALL servers?\nAuto-closes after 3h if you forget.",
+		"Open",
+		Color3.fromRGB(60, 170, 90),
+		function()
+			Packets.AdminRewardSet:Fire(true)
+		end
+	)
+end)
+
+local rewardCloseBtn = makeButton(eventsRightCol, "Close obby (restore barrier)", Color3.fromRGB(70, 78, 96))
+rewardCloseBtn.Size = UDim2.new(1, 0, 0, 30)
+rewardCloseBtn.LayoutOrder = nextOrder()
+rewardCloseBtn.MouseButton1Click:Connect(function()
+	confirmAction(
+		"Restore the barrier and disable the Vezkitt reward in ALL servers?",
+		"Close",
+		Color3.fromRGB(70, 78, 96),
+		function()
+			Packets.AdminRewardSet:Fire(false)
+		end
+	)
 end)
 
 -- ── Toggle ───────────────────────────────────────────────────────────────────

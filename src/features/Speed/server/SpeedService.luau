@@ -199,6 +199,11 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 		then GroupBonusConfig.Multiplier
 		else 1
 
+	-- Weather Event global activo (atributo en vivo, lo gestiona WeatherService).
+	-- Aditivo acá, pero OJO: el weather es la única fuente que ADEMÁS multiplica los
+	-- Wins (vía WeatherWinsBoost en WinsService:_creditWins), con un número aparte.
+	local weatherBoost = (player:GetAttribute("WeatherBoost") or 1) :: number
+
 	-- Los multiplicadores se SUMAN entre sí (cada fuente aporta su "+X" sobre una
 	-- base de 1), y SOLO el rebirth multiplica el total: es la mecánica de prestigio.
 	--   total = (1 + Σ(mult-1)) × rebirth
@@ -210,11 +215,12 @@ function SpeedService:_updateTotalMultiplier(player: Player): ()
 		+ (speedBoostMultiplier - 1)
 		+ (friendsBoost - 1)
 		+ (groupBonusMultiplier - 1)
+		+ (weatherBoost - 1)
 
 	local total = additiveBase * rebirthMultiplier
 
 	player:SetAttribute("TotalMultiplier", total)
-	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier} + friends {friendsBoost} + group {groupBonusMultiplier}] * rebirth x{rebirthMultiplier})`)
+	debugPrint(`TotalMultiplier de {player.Name}: x{total} (base {additiveBase} [mount {mountMultiplier} + playtime {playTimeMultiplier} + hat {hatMultiplier} + trail {trailMultiplier} + speedBoost {speedBoostMultiplier} + friends {friendsBoost} + group {groupBonusMultiplier} + weather {weatherBoost}] * rebirth x{rebirthMultiplier})`)
 end
 
 function SpeedService:updateTotalMultiplier(player: Player): ()

@@ -91,9 +91,29 @@ return {
 	AdminAbuseState   = Packet("AdminAbuseState", Packet.Boolean8, Packet.String, Packet.NumberF64),
 
 	-- Treadmill de prueba en ServerStorage.AdminAbuse.Treadmill (distinto del sistema
-	-- de arriba, solo comparten carpeta por nombre). Efecto local a ESTE server nada
-	-- más: mueve el modelo Workspace<->ServerStorage, no hay MessagingService.
-	-- multiplier se valida contra AdminTreadmillConfig en el servidor.
+	-- de arriba, solo comparten carpeta por nombre). Mueve el modelo entre
+	-- Workspace y ServerStorage. multiplier se valida contra AdminTreadmillConfig en
+	-- el servidor (al recibir del cliente, al recibir por MessagingService y al
+	-- restaurar del DataStore).
+	-- CROSS-SERVER y persistido con caducidad, igual que el reward: aparece también
+	-- en los servers que Roblox cree durante el evento, y se retira sola a las 3h.
 	AdminTreadmillSpawn  = Packet("AdminTreadmillSpawn", Packet.NumberU16),
 	AdminTreadmillReturn = Packet("AdminTreadmillReturn"),
+
+	-- Weather events. El cliente admin manda SOLO un Id; los multiplicadores y los
+	-- visuales los resuelve cada lado desde WeatherConfig, así que un cliente
+	-- modificado no puede inventarse un bonus. Cross-server vía MessagingService
+	-- (igual que AdminAbuse) + DataStore, porque el evento no caduca solo y los
+	-- servers que arranquen después tienen que enterarse igual.
+	-- Reward de Admin Abuse (Workspace.AdminUtils): quita el Barrier y habilita el
+	-- Reward, que al tocarlo concede la montura Vezkitt. Cross-server, como el
+	-- weather. El cliente solo manda un booleano; el servidor decide qué montura es
+	-- y valida que el reward esté realmente activo antes de conceder nada.
+	AdminRewardSet      = Packet("AdminRewardSet", Packet.Boolean8),
+
+	AdminWeatherTrigger = Packet("AdminWeatherTrigger", Packet.String),
+	AdminWeatherClear   = Packet("AdminWeatherClear"),
+	-- Servidor → cliente: estado actual. active=false limpia el weather (weatherId
+	-- llega vacío). Lo recibe el feature Weather, que lo corren TODOS los jugadores.
+	WeatherState        = Packet("WeatherState", Packet.Boolean8, Packet.String),
 }

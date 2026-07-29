@@ -40,15 +40,85 @@
 ## TotalMultiplier
 - Atributo en el Player (replicado al cliente automáticamente)
 - Los multiplicadores se **SUMAN** entre sí; SOLO el rebirth multiplica el total:
-  `total = (1 + (mount-1) + (playtime-1) + (hat-1) + (trail-1) + (speedBoost-1)) × rebirthMultiplier`
+  `total = (1 + (mount-1) + (playtime-1) + (hat-1) + (trail-1) + (speedBoost-1) + (friends-1) + (group-1) + (weather-1)) × rebirthMultiplier`
 - Cada fuente aporta su "+X" sobre una base de 1; el rebirth es la mecánica de prestigio que
   multiplica todo lo acumulado. **NO volver a multiplicar los factores entre sí** (rompe el balance)
 - Se calcula en UN solo sitio: `SpeedService:_updateTotalMultiplier`. Los clientes solo LEEN el
   atributo (`player:GetAttribute("TotalMultiplier")`), nunca recalculan
 - Se recalcula en: carga de personaje, evolve, rebirth, equip de mount/hat/trail, tiers de playtime,
-  compra de Speed Tier
+  compra de Speed Tier, entrada/salida de amigos, claim del group bonus, y activar/quitar un
+  weather event
 - Speed ganado por paquete = `math.ceil(TotalMultiplier × EquippedSteps × treadmillMultiplier)`
 - Los steps y el treadmill NO están dentro de TotalMultiplier: multiplican aparte en `SpeedService`
+
+## Weather Events
+- Evento global que activa un admin desde el panel (`WeatherConfig.Presets`: Thunderstorm,
+  Blizzard, Blood Moon, Aurora). **No caduca solo**: queda activo hasta que alguien pulse
+  "Remove weather"
+- El bonus viaja por **atributos de Player**, no por wiring de servicios (mismo canal que
+  `FriendsBoost`): `WeatherBoost` lo SUMA `SpeedService`, `WeatherWinsBoost` lo MULTIPLICA
+  `WinsService:_creditWins`. Ambos valen 1 sin evento
+- Es la **única fuente que además multiplica Wins** fuera del rebirth. Por eso `WeatherConfig`
+  lleva dos números distintos: un `Multiplier` de Speed vistoso (x2..x10, aditivo, se diluye en
+  late-game) y un `WinsMultiplier` mucho más contenido (x1.25..x3, multiplicativo de verdad).
+  **No igualarlos**: un x10 multiplicativo sobre Wins se come la cadena de evolves entera
+- Tres capas de propagación, y hacen falta las tres: `Packets.WeatherState` (este server),
+  `MessagingService` (los demás servers vivos) y un DataStore (`WeatherEvent`/`Current`, para
+  los servers que arranquen DESPUÉS). Sin la tercera, un server nuevo levantaría sin el weather
+- El cliente (`src/features/Weather/client`) toma un **snapshot de Lighting al arrancar** y lo
+  restaura al quitar el evento. Tweenea las instancias que YA existen en el `.rbxl`
+  (`Atmosphere`, `ColorCorrection`, `Bloom`, `Sky`) — no crea las suyas, salvo el
+  `ColorCorrectionEffect` "WeatherFlash" de los rayos, que va aparte para no pelear con el tween
+- **NO tocar el `BlurEffect` "DialogueBlur"**: es de `MenuManager`/`MenuAnimations`
+- Las partículas son un `Part` invisible parented a la `Camera`, reposicionado en `RenderStepped`
+  para seguir al jugador. Al cambiar de weather se apaga la emisión y se destruye con delay, o
+  la lluvia desaparecería en un frame
+- Los `Skybox` de los presets son `nil` a propósito (placeholders, como los `rbxassetid://0` de
+  `MountsConfig`): sin ellos el evento se ve igual de bien solo con atmósfera + `ClockTime` + tint
+- El label `Bot.Content."Current Event"` (que vive en el `.rbxl`) lo posee este feature en
+  exclusiva; vacío = sin evento
+
+## Eventos globales: el patrón de las 3 capas
+- Lo comparten Admin Abuse, Weather, el Reward de Vezkitt y el Test Treadmill. Un evento global NO se
+  propaga solo con `MessagingService`: ese solo llega a los servers **vivos en el momento
+  del publish**. Durante un evento entra una avalancha de gente y Roblox abre servers
+  nuevos justamente por eso — sin la capa de DataStore, los jugadores que vienen AL evento
+  son los únicos que no lo ven
+- Las tres capas: `MessagingService` (servers vivos) + DataStore (los que arranquen
+  después) + un `os.time()` **absoluto** guardado como estado (que todos cierren a la vez)
+- Guardar el instante de cierre y no un booleano da tres cosas gratis: un estado caducado
+  se lee solo como "cerrado" (no hay que limpiar la clave), cada server programa su propio
+  `task.delay` de cierre sin que nadie publique nada, y un server que arranca a mitad
+  recibe el tiempo restante correcto
+- Todos llevan un tope de seguridad (3h) para que un admin olvidadizo no deje contenido
+  exclusivo —o una cinta x100— abierto para siempre en servers que nadie supervisa
+- El emisor ignora su propio eco con `if data.j == game.JobId then return end`, y lo que
+  llega por el topic o por el DataStore **se revalida contra el config** antes de aplicarse
+- En Admin Abuse hay DOS instantes y no son lo mismo: `endTime` es cuándo la cuenta regresiva
+  del banner llega a 0 (y el banner se queda, sin reloj: "admin abuse in" → ocurre ahora),
+  y `expiresAt` es cuándo se deja de anunciar. Los presets estáticos ("happening now") tienen
+  `endTime = 0` pero sí `expiresAt`, o quedarían anunciándose para siempre
+- Reenviar el estado en `PlayerAdded` cubre a los **jugadores** que entran tarde a un server
+  que ya lo tenía; no cubre a los **servers** que nacen tarde. Son dos agujeros distintos y
+  hacen falta los dos arreglos
+
+## Reward de Admin Abuse (Vezkitt)
+- `Workspace.AdminUtils`: un obby detrás de un `Barrier`, con un `Reward` (rig con un
+  Part `HitBox`) al final que concede la montura `Vezkitt`. Es la ÚNICA forma de conseguirla
+- Abrir mueve el `Barrier` a `ServerStorage.AdminAbuse` y lo devuelve al cerrar: al ser el
+  MISMO objeto conserva su posición exacta (igual que el treadmill de prueba)
+- El `Touched` del HitBox se conecta UNA vez al arrancar y consulta el flag `_rewardActive`.
+  No se conectan/desconectan señales al abrir y cerrar. Antes de conceder comprueba si el
+  jugador ya la tiene: el `Touched` dispara decenas de veces mientras estás encima
+- **El estado se guarda como un `os.time()` absoluto de cierre, no como un booleano**, y va
+  por tres capas: `MessagingService` (servers vivos) + DataStore `AdminReward`/`OpenUntil`
+  (los que arranquen después) + el instante absoluto (todos cierran a la vez). La capa del
+  DataStore NO es opcional: durante un evento Roblox abre servers nuevos justamente porque
+  entra una avalancha de gente, y sin ella esos jugadores —los que vienen al evento— se
+  encuentran el obby cerrado
+- Cada server programa su propio `task.delay` de auto-cierre contra ese mismo instante, así
+  que nadie tiene que publicar el cierre. `REWARD_MAX_OPEN_SECONDS` (3h) es el tope de
+  seguridad para que un admin olvidadizo no deje contenido exclusivo abierto para siempre
 
 ## Economía / balance
 
@@ -173,7 +243,9 @@
 ## Trampas conocidas (sin arreglar)
 - **Treadmill validado por máximo global**: `getMaxTreadmillMultiplier` comprueba si el jugador
   *puede* usar un multiplicador, no si está encima de esa cinta. Con Ruby comprado se puede reclamar
-  x100 estando en una x1. Distorsiona cualquier medición de tiempos
+  x100 estando en una x1. Distorsiona cualquier medición de tiempos.
+  **Ojo ahora que el treadmill de admin es cross-server**: soltar una cinta x100 sube el techo de
+  TODO el juego, y como no hace falta pisarla, basta con que exista. De ahí el tope de 3h
 - **`RequestSpeedGain` sin validación de posición**: el servidor solo aplica rate limit (10/s) y el
   clamp de treadmill. Un cliente puede spamear el paquete quieto
 - **`WallHit`**: remote sin validación; el cliente puede pedir su propia muerte

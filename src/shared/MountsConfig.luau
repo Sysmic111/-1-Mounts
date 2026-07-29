@@ -64,6 +64,8 @@ local MountsConfig = {
 		{ Name = "Velune",          Multiplier = 25,  Image = "rbxassetid://136869744377145", EvolveRequirements = nil },
 		{ Name = "Droth",           Multiplier = 70,  Image = "rbxassetid://138492432017701", EvolveRequirements = nil },
 		{ Name = "Pyrax",           Multiplier = 130, Image = "rbxassetid://104693225494550", EvolveRequirements = nil },
+		{ Name = "Vezkitt",         Multiplier = 50, Image = "rbxassetid://123190378184732", EvolveRequirements = nil },
+		
 	} :: { MountData },
 
 }

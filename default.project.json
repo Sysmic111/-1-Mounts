@@ -83,6 +83,9 @@
       "Trails": {
         "$path": "src/features/Trails/server"
       },
+      "Weather": {
+        "$path": "src/features/Weather/server"
+      },
       "Wins": {
         "$path": "src/features/Wins/server"
       }
@@ -160,6 +163,9 @@
         },
         "Trails": {
           "$path": "src/features/Trails/client"
+        },
+        "Weather": {
+          "$path": "src/features/Weather/client"
         },
         "Wins": {
           "$path": "src/features/Wins/client"

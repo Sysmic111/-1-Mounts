@@ -170,7 +170,15 @@ function WinsService:_creditWins(player: Player, winsQuantity: number): ()
 
 	local rebirthCount = (dataService:get(player, { "Rebirth" }) or 0) :: number
 	local multiplier   = RebirthConfig.getWinsMultiplier(rebirthCount)
-	local earned       = math.round(winsQuantity * multiplier)
+
+	-- Weather Event global (atributo en vivo, lo gestiona WeatherService). Acá SÍ
+	-- multiplica, a diferencia de en TotalMultiplier donde suma: los Wins no tienen
+	-- base aditiva, su único multiplicador (el rebirth) también es multiplicativo.
+	-- Por eso WeatherConfig lleva un WinsMultiplier aparte, mucho más contenido que
+	-- el de Speed: los Wins son el sink más grande del juego.
+	local weatherWins = (player:GetAttribute("WeatherWinsBoost") or 1) :: number
+
+	local earned = math.round(winsQuantity * multiplier * weatherWins)
 
 	local currentWins = dataService:get(player, { "WinCurrency" }) or 0
 	local newWins = currentWins + earned
