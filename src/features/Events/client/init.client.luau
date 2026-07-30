@@ -9,7 +9,7 @@
 
 local SocialService = game:GetService("SocialService")
 
-local EVENT_ID      = "5924546763913560660"
+local EVENT_ID      = "2496037773681754725"
 local DELAY_SECONDS = 300 -- 5 min de sesión
 
 task.spawn(function()
