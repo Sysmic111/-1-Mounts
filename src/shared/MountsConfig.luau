@@ -5,9 +5,18 @@ export type EvolveRequirements = {
 	Wins: number,
 }
 
+-- Una montura define su multiplicador de UNA de estas dos formas, nunca las dos:
+--
+--   Multiplier    -> valor fijo. Es lo que usan las World1.
+--   PremiumFactor -> factor RELATIVO sobre la mejor World1 que el jugador posee.
+--                    Es lo que usan las Premium.
+--
+-- Por eso los dos campos son opcionales en el tipo: el valor efectivo no se lee
+-- nunca a pelo, se pide a MountsConfig.getEffectiveMultiplier.
 export type MountData = {
 	Name: string,
-	Multiplier: number,
+	Multiplier: number?,
+	PremiumFactor: number?,
 	Image: string,
 	EvolveRequirements: EvolveRequirements?,
 	ProductId: number?, -- Developer Product (solo monturas Premium)
@@ -56,16 +65,26 @@ local MountsConfig = {
 		{ Name = "Nyxion",    Multiplier = 90.00, Image = "rbxassetid://96015267241327",  EvolveRequirements = { Level = 126, Wins = 500000 } },
 	} :: { MountData },
 
-	-- Secret Mounts del Index. Sin ProductId no se pueden comprar: las tres de
-	-- abajo solo se consiguen en el Daily Login (días 7, 14 y 21).
+	-- Secret Mounts del Index. Sin ProductId no se pueden comprar: Velune, Droth y
+	-- Pyrax solo salen del Daily Login (días 7, 14 y 21) y Vezkitt del obby de
+	-- Admin Abuse.
+	--
+	-- No llevan multiplicador fijo: escalan con PremiumFactor sobre la mejor World1
+	-- que el jugador POSEA. Una Premium siempre vale más que la mejor base (el
+	-- factor mínimo es 2), y su valor crece solo según avanza la cadena de evolves
+	-- en vez de quedar obsoleta a mitad de partida o romper el early game.
+	--
+	-- OJO — decisión deliberada, no un descuido: las dos de pago NO están por encima
+	-- de las gratuitas. Vespofuzz (x2) empata con Velune y pierde contra Droth (x3);
+	-- Phantom Chopper (x5) empata con Pyrax. Si algún día se revisan las ventas de
+	-- 3606128170 / 3606128200, es aquí donde hay que mirar.
 	Premium = {
-		{ Name = "Vespofuzz",       Multiplier = 100, Image = "rbxassetid://124781012483071", EvolveRequirements = nil, ProductId = 3606128170 },
-		{ Name = "Phantom Chopper", Multiplier = 150, Image = "rbxassetid://119825390796383", EvolveRequirements = nil, ProductId = 3606128200 },
-		{ Name = "Velune",          Multiplier = 25,  Image = "rbxassetid://136869744377145", EvolveRequirements = nil },
-		{ Name = "Droth",           Multiplier = 70,  Image = "rbxassetid://138492432017701", EvolveRequirements = nil },
-		{ Name = "Pyrax",           Multiplier = 130, Image = "rbxassetid://104693225494550", EvolveRequirements = nil },
-		{ Name = "Vezkitt",         Multiplier = 50, Image = "rbxassetid://123190378184732", EvolveRequirements = nil },
-		
+		{ Name = "Vespofuzz",       PremiumFactor = 2, Image = "rbxassetid://124781012483071", EvolveRequirements = nil, ProductId = 3606128170 },
+		{ Name = "Phantom Chopper", PremiumFactor = 5, Image = "rbxassetid://119825390796383", EvolveRequirements = nil, ProductId = 3606128200 },
+		{ Name = "Velune",          PremiumFactor = 2, Image = "rbxassetid://136869744377145", EvolveRequirements = nil },
+		{ Name = "Droth",           PremiumFactor = 3, Image = "rbxassetid://138492432017701", EvolveRequirements = nil },
+		{ Name = "Pyrax",           PremiumFactor = 5, Image = "rbxassetid://104693225494550", EvolveRequirements = nil },
+		{ Name = "Vezkitt",         PremiumFactor = 3, Image = "rbxassetid://123190378184732", EvolveRequirements = nil },
 	} :: { MountData },
 
 }
@@ -86,6 +105,38 @@ function MountsConfig.getMountData(name: string): MountData?
 		if mount.Name == name then return mount end
 	end
 	return nil
+end
+
+-- Multiplicador de la mejor World1 que el jugador POSEE (no la equipada): es la
+-- referencia sobre la que escalan las Premium. Se mira la propiedad y no el equipo
+-- porque con una Premium puesta no hay ninguna World1 equipada de la que tirar.
+--
+-- Nunca baja: el rebirth resetea Level y SpeedCurrency, jamás las mounts.
+--
+-- Devuelve 1 si no posee ninguna (imposible en la práctica: MountsService siembra
+-- Chonk, que ya vale 1).
+function MountsConfig.getBestOwnedMultiplier(ownedMounts: { [string]: boolean }): number
+	local best = 1
+	for _, mount in MountsConfig.World1 do
+		if ownedMounts[mount.Name] and (mount.Multiplier or 1) > best then
+			best = mount.Multiplier or 1
+		end
+	end
+	return best
+end
+
+-- Multiplicador efectivo de una montura para un jugador concreto. ÚNICO sitio que
+-- resuelve Multiplier vs PremiumFactor: leer cualquiera de los dos campos a pelo
+-- fuera de aquí da un número equivocado para la mitad de las monturas.
+function MountsConfig.getEffectiveMultiplier(mountName: string, ownedMounts: { [string]: boolean }): number
+	local mount = MountsConfig.getMountData(mountName)
+	if not mount then return 1 end
+
+	if mount.PremiumFactor then
+		return mount.PremiumFactor * MountsConfig.getBestOwnedMultiplier(ownedMounts)
+	end
+
+	return mount.Multiplier or 1
 end
 
 return MountsConfig

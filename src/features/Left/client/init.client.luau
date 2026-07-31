@@ -342,8 +342,19 @@ local function buildMountGrid(mountList: { MountsConfig.MountData }, ownedMounts
 		image1.Image          = mount.Image
 		image1.ImageColor3    = owned and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
 
+		-- Las Premium no tienen número fijo: valen un factor sobre la mejor World1
+		-- poseída. Se muestra el factor y su referencia en vez del producto ya
+		-- calculado, para que se entienda que el valor sube solo según avanza la
+		-- cadena de evolves. Formato "2x Best" a juego con los carteles de
+		-- Workspace.PremiumMounts ("2x Best Mount Speed"), que viven en el .rbxl.
 		local oddsLabel = ct:FindFirstChild("Odds") :: TextLabel
-		oddsLabel.Text = owned and ("x" .. tostring(mount.Multiplier)) or "x?"
+		if not owned then
+			oddsLabel.Text = "x?"
+		elseif mount.PremiumFactor then
+			oddsLabel.Text = tostring(mount.PremiumFactor) .. "x Best"
+		else
+			oddsLabel.Text = "x" .. tostring(mount.Multiplier)
+		end
 
 		local equippedFrame = ct:FindFirstChild("Equipped") :: Frame
 		equippedFrame.Visible = (mount.Name == equippedName)

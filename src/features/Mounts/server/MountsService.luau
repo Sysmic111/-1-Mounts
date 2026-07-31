@@ -189,10 +189,12 @@ function MountsService:GetMultiplier(player: Player): number
 	local mountName = dataService:get(player, { "EquippedMount" }) :: string?
 	if not mountName or mountName == "" then return 1 end
 
-	local mountData = MountsConfig.getMountData(mountName)
-	if not mountData then return 1 end
-
-	return mountData.Multiplier
+	-- Las Premium valen un factor sobre la mejor World1 poseída, así que hace falta
+	-- la tabla de mounts entera y no solo la equipada. Por eso esto tiene que
+	-- recalcularse también al evolucionar aun con una Premium puesta (_handleEvolve
+	-- ya llama a updateTotalMultiplier en sus dos ramas).
+	local ownedMounts = (dataService:get(player, { "Mounts" }) or {}) :: { [string]: boolean }
+	return MountsConfig.getEffectiveMultiplier(mountName, ownedMounts)
 end
 
 return MountsService

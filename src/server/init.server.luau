@@ -18,6 +18,7 @@ local RingEnemyService = require(ServerScriptService.Stages.RingEnemyService)
 local RobuxService     = require(ServerScriptService.Robux.RobuxService)
 local StepsService     = require(ServerScriptService.Steps.StepsService)
 local PremiumMountsService = require(ServerScriptService.PremiumMounts.PremiumMountsService)
+local NewPlayerBonusService = require(ServerScriptService.NewPlayerBonus.NewPlayerBonusService)
 local HatsService      = require(ServerScriptService.Hats.HatsService)
 local TrailsService    = require(ServerScriptService.Trails.TrailsService)
 local DailyService     = require(ServerScriptService.Daily.DailyService)
@@ -87,6 +88,13 @@ DataService:init({
 		AnalyticsRebirthCycleStep = 0,
 		AnalyticsDailyLoggedDay    = 0,
 		HighestStageReached       = 1,
+		-- Bonus de jugador nuevo (15 min seguidos = montura Premium gratis).
+		-- Cuenta las sesiones en las que YA se ofreció: al alcanzar
+		-- NewPlayerBonusConfig.MaxSessions la oferta caduca para siempre. El reloj
+		-- de los 15 minutos NO se guarda a propósito: es de sesión y reinicia al
+		-- reconectar, que es lo que hace real el aviso al salir.
+		NewPlayerBonusSessions = 0,
+		NewPlayerBonusClaimed  = false,
 	},
 })
 
@@ -118,6 +126,7 @@ RobuxService:init(DataService)
 SpeedService:setRobuxService(RobuxService)
 StepsService:init(DataService)
 PremiumMountsService:init(DataService, RobuxService)
+NewPlayerBonusService:init(DataService)
 StarterPackService:init(DataService, RobuxService)
 SpeedBoostService:init(DataService, RobuxService, SpeedService)
 SpeedBuyService:init(DataService, RobuxService, SpeedService)

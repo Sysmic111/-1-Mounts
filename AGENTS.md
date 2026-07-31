@@ -36,6 +36,21 @@
 - MountsConfig.luau está en Shared (no en server) — tanto cliente como servidor lo usan
 - `MountsConfig.World1` = mounts normales, `MountsConfig.Premium` = Secret Mounts del Index
 - Cada mount tiene `Image: string` (rbxassetid) — cambiar los placeholders `"rbxassetid://0"` cuando haya assets
+- **Dos formas de definir el multiplicador, nunca las dos a la vez**: las World1 llevan
+  `Multiplier` (valor fijo); las Premium llevan `PremiumFactor`, un factor RELATIVO sobre la
+  mejor World1 que el jugador **posee** (no la equipada — con una Premium puesta no hay ninguna
+  World1 equipada de la que tirar). Por eso ambos campos son opcionales en `MountData`
+- **Nunca leer `.Multiplier` ni `.PremiumFactor` a pelo**: usar
+  `MountsConfig.getEffectiveMultiplier(name, ownedMounts)`, único sitio que resuelve cuál de los
+  dos aplica. Leer el campo directo da un número equivocado para la mitad de las monturas
+- Como el valor de una Premium depende de la cadena de evolves, `updateTotalMultiplier` tiene que
+  correr también al evolucionar con una Premium equipada (`MountsService:_handleEvolve` ya lo hace
+  en sus dos ramas)
+- Los factores actuales: Vespofuzz 2x, Phantom Chopper 5x, Velune 2x, Droth 3x, Pyrax 5x,
+  Vezkitt 3x. **Las dos de pago NO superan a las gratuitas** (Vespofuzz empata con Velune y pierde
+  contra Droth; Phantom Chopper empata con Pyrax) — es deliberado, no un descuido
+- Los carteles `Workspace.PremiumMounts.Detail<i>.SurfaceGui.Steps` ("2x Best Mount Speed") viven
+  en el `.rbxl` y están a mano: si cambia un `PremiumFactor`, hay que editarlos en Studio
 
 ## TotalMultiplier
 - Atributo en el Player (replicado al cliente automáticamente)

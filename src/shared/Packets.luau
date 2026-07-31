@@ -56,6 +56,16 @@ return {
 	-- Servidor pide al cliente lanzar el prompt nativo de favoritos (sin datos).
 	PromptFavorite    = Packet("PromptFavorite"),
 
+	-- Bonus de jugador nuevo: 15 minutos seguidos de sesión = montura Premium gratis.
+	-- active=false oculta el botón (reclamada o caducada). readyTime es un os.time()
+	-- ABSOLUTO, igual que el endTime de AdminAbuse: el cliente pinta la cuenta
+	-- regresiva solo, sin tráfico por segundo, y sabe que ya es reclamable cuando
+	-- os.time() lo alcanza. El servidor revalida ese mismo instante al recibir el
+	-- claim, así que adelantar el reloj del cliente no concede nada.
+	NewPlayerBonusState  = Packet("NewPlayerBonusState", Packet.Boolean8, Packet.NumberF64),
+	NewPlayerBonusClaim  = Packet("NewPlayerBonusClaim"),
+	NewPlayerBonusResult = Packet("NewPlayerBonusResult", Packet.Boolean8, Packet.String),
+
 	-- Admin panel. El cliente solo dispara estos remotes desde el panel (que solo se
 	-- construye para admins); el servidor revalida player.UserId contra AdminConfig en
 	-- CADA handler, así que dispararlos a mano siendo no-admin no hace nada.

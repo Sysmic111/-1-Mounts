@@ -23,6 +23,9 @@
       "Agility": {
         "$path": "src/features/Agility/server"
       },
+      "Analytics": {
+        "$path": "src/features/Analytics/server"
+      },
       "Badges": {
         "$path": "src/features/Badges/server"
       },
@@ -49,6 +52,9 @@
       },
       "Mounts": {
         "$path": "src/features/Mounts/server"
+      },
+      "NewPlayerBonus": {
+        "$path": "src/features/NewPlayerBonus/server"
       },
       "PlayTime": {
         "$path": "src/features/PlayTime/server"
@@ -133,6 +139,9 @@
         },
         "Music": {
           "$path": "src/features/Music/client"
+        },
+        "NewPlayerBonus": {
+          "$path": "src/features/NewPlayerBonus/client"
         },
         "PlayTime": {
           "$path": "src/features/PlayTime/client"
