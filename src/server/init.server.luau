@@ -33,6 +33,7 @@ local GroupBonusService = require(ServerScriptService.GroupBonus.GroupBonusServi
 local MorphService     = require(ServerScriptService.Mounts.MorphService)
 local AdminService     = require(ServerScriptService.Admin.AdminService)
 local WeatherService   = require(ServerScriptService.Weather.WeatherService)
+local RaceService      = require(ServerScriptService.Race.RaceService)
 local FunnelService    = require(script.FunnelService)
 
 DataService:init({
@@ -112,6 +113,8 @@ MountsService:setSpeedService(SpeedService)
 RebirthService:init(DataService)
 RebirthService:setSpeedService(SpeedService)
 WinsService:init(DataService, RobuxService)
+-- Después de WinsService: las carreras pagan a través de él (awardWins/teleportToSpawn).
+RaceService:init(DataService, WinsService)
 EnvironmentService:init()
 -- Necesita DataService para acumular TotalPlayTime (estadística de por vida).
 PlayTimeService:init(DataService)

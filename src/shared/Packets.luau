@@ -121,6 +121,16 @@ return {
 	-- y valida que el reward esté realmente activo antes de conceder nada.
 	AdminRewardSet      = Packet("AdminRewardSet", Packet.Boolean8),
 
+	-- Carrera contra el NPC de un stage. El cliente NO decide nada: solo pinta el menú
+	-- (RaceOpen), pide correr (RaceAccept) y muestra la cuenta atrás y el resultado que
+	-- le manda el servidor. Quién gana lo determina el servidor comparando posiciones,
+	-- así que un cliente modificado no puede reclamar la victoria.
+	-- El stage va como U8 (hay 14) y los wins como F64 (con rebirth pasan de U32).
+	RaceOpen      = Packet("RaceOpen",      Packet.NumberU8, Packet.String),
+	RaceAccept    = Packet("RaceAccept",    Packet.NumberU8),
+	RaceCountdown = Packet("RaceCountdown", Packet.String),
+	RaceResult    = Packet("RaceResult",    Packet.Boolean8, Packet.NumberF64),
+
 	AdminWeatherTrigger = Packet("AdminWeatherTrigger", Packet.String),
 	AdminWeatherClear   = Packet("AdminWeatherClear"),
 	-- Servidor → cliente: estado actual. active=false limpia el weather (weatherId

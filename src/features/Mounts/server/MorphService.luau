@@ -193,43 +193,37 @@ function MorphService.ApplyTrail(player: Player): ()
 	attachTrail(character, getEquippedTrail(player))
 end
 
-function MorphService.MorphPlayer(player: Player, mountName: string): ()
+-- Monta `rider` (un rig cualquiera: el avatar de un jugador o un NPC) sobre una copia
+-- del modelo de `mountName`, colocada en `cframe`, y devuelve el modelo resultante ya
+-- parenteado a Workspace.
+--
+-- NO toca player.Character ni pone el atributo IsMountCharacter: eso es cosa de
+-- MorphPlayer. Así el mismo rigging (Seat invisible + RigidConstraint al attachment
+-- Root.Torso.Seat + animación del rider) sirve para el morph del jugador y para los
+-- NPC de las carreras, sin duplicar el código de los attachments.
+function MorphService.BuildMountRig(mountName: string, rider: Model, cframe: CFrame): Model?
 	local mountsFolder = ReplicatedStorage:FindFirstChild("Mounts")
 	if not mountsFolder then
 		warn("[MorphService] No se encontró ReplicatedStorage.Mounts")
-		return
+		return nil
 	end
 
 	local mountTemplate = mountsFolder:FindFirstChild(mountName)
-	if not mountTemplate then
+	if not mountTemplate or not mountTemplate:IsA("Model") then
 		warn(`[MorphService] No se encontró el modelo de mount: {mountName}`)
-		return
+		return nil
 	end
 
-	local oldCharacter = player.Character
-	if not oldCharacter then return end
-
-	-- Si ya es un mount, usar el OriginalCharacter interno para no anidar mounts
-	local existingOriginal = oldCharacter:FindFirstChild("OriginalCharacter")
-	local sourceCharacter = existingOriginal or oldCharacter
-
-	local oldHRP = oldCharacter:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not oldHRP then return end
-
-	local spawnCFrame = oldHRP.CFrame
-
 	local newChar = (mountTemplate :: Model):Clone()
-	newChar.Name = player.Name
-	newChar:SetAttribute("IsMountCharacter", true)
 
 	local newHRP = newChar:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not newHRP then
 		warn(`[MorphService] El modelo {mountName} no tiene HumanoidRootPart`)
 		newChar:Destroy()
-		return
+		return nil
 	end
 
-	newHRP.CFrame = spawnCFrame
+	newHRP.CFrame = cframe
 
 	for _, part in newChar:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -264,13 +258,23 @@ function MorphService.MorphPlayer(player: Player, mountName: string): ()
 
 	seat.Parent = newChar
 
-	-- Clonar el character original y sentarlo en el mount
-	sourceCharacter.Archivable = true
-	local cloneCharacter = (sourceCharacter :: Model):Clone()
+	-- Clonar el rider y sentarlo en el mount
+	rider.Archivable = true
+	local cloneCharacter = rider:Clone()
 	cloneCharacter.Name = "OriginalCharacter"
 
 	local animateScript = cloneCharacter:FindFirstChild("Animate")
 	if animateScript then animateScript:Destroy() end
+
+	-- Un rig anclado no se puede sentar: el SeatWeld no lo movería y se quedaría
+	-- plantado donde estaba. Los avatares de jugador nunca vienen anclados, pero los
+	-- NPC del mundo sí (RaceService los ancla para que no deambulen), así que se
+	-- desanclan aquí antes del Sit.
+	for _, part in cloneCharacter:GetDescendants() do
+		if part:IsA("BasePart") then
+			(part :: BasePart).Anchored = false
+		end
+	end
 
 	cloneCharacter.Parent = newChar
 
@@ -282,6 +286,26 @@ function MorphService.MorphPlayer(player: Player, mountName: string): ()
 		cloneHumanoid.AutoRotate = false
 		playRiderAnimation(cloneHumanoid)
 	end
+
+	return newChar
+end
+
+function MorphService.MorphPlayer(player: Player, mountName: string): ()
+	local oldCharacter = player.Character
+	if not oldCharacter then return end
+
+	-- Si ya es un mount, usar el OriginalCharacter interno para no anidar mounts
+	local existingOriginal = oldCharacter:FindFirstChild("OriginalCharacter")
+	local sourceCharacter = (existingOriginal or oldCharacter) :: Model
+
+	local oldHRP = oldCharacter:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not oldHRP then return end
+
+	local newChar = MorphService.BuildMountRig(mountName, sourceCharacter, oldHRP.CFrame)
+	if not newChar then return end
+
+	newChar.Name = player.Name
+	newChar:SetAttribute("IsMountCharacter", true)
 
 	-- Destruir el mount anterior si había uno
 	if existingOriginal then

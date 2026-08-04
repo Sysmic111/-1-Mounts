@@ -200,6 +200,23 @@ function WinsService:_creditWins(player: Player, winsQuantity: number): ()
 	debugPrint(`Wins entregados: {player.Name}, +{earned} (x{multiplier}), total={newWins}`)
 end
 
+-- API pública para otros features que conceden Wins fuera de un botón (hoy: las
+-- carreras contra NPC). Pasa por _creditWins a propósito, para heredar el
+-- multiplicador de rebirth, el WeatherWinsBoost, TotalWinsEarned y el funnel: si cada
+-- feature replicase esa fórmula, cualquier cambio de balance habría que tocarlo en
+-- varios sitios.
+function WinsService:awardWins(player: Player, amount: number): ()
+	if typeof(amount) ~= "number" or amount <= 0 then
+		return
+	end
+	self:_creditWins(player, amount)
+end
+
+-- Mismo teleport al spawn que tras reclamar un botón de Wins.
+function WinsService:teleportToSpawn(player: Player): ()
+	self:_teleportToSpawn(player)
+end
+
 function WinsService:_giveWins(player: Player, winZone: Instance): ()
 	local winsQuantity = winZone:GetAttribute(WinsConfig.WinsQuantityAttribute)
 	if typeof(winsQuantity) ~= "number" then

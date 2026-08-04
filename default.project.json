@@ -62,6 +62,9 @@
       "PremiumMounts": {
         "$path": "src/features/PremiumMounts/server"
       },
+      "Race": {
+        "$path": "src/features/Race/server"
+      },
       "Rebirth": {
         "$path": "src/features/Rebirth/server"
       },
@@ -148,6 +151,9 @@
         },
         "PremiumMounts": {
           "$path": "src/features/PremiumMounts/client"
+        },
+        "Race": {
+          "$path": "src/features/Race/client"
         },
         "Robux": {
           "$path": "src/features/Robux/client"
