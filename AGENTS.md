@@ -31,6 +31,61 @@
 - `src/shared/` → ReplicatedStorage.Shared
 - Registrar cada feature nuevo en `default.project.json`
 
+## Multi-place / Worlds
+- El juego son VARIOS places con el MISMO codebase: World 1 = `74139556114101`,
+  World 2 = `88347344061446`. Un solo `default.project.json`, un solo Rojo: los dos places
+  sincronizan exactamente lo mismo
+- `src/shared/WorldsConfig.luau` es el **único sitio del repo que conoce PlaceIds**. Resuelve
+  `game.PlaceId` UNA vez al require y cachea. Fallback a World1 con warn — en un `.rbxl` local
+  sin publicar `game.PlaceId` es `0`, así que Studio cae ahí a propósito
+- `WorldsConfig.Override` fuerza otro mundo para probar sin publicar. **Commitear siempre a `nil`**
+- **Los dos places tienen los MISMOS nombres de Workspace** (`Stage 2`..`Stage 14`, Models
+  `Steps`): "stage 5" significa cosas distintas según el place. Todo lo que dependa del stage
+  va por mundo — `EconomyConfig.Worlds`, `RaceConfig.Worlds`, `ObstaclesConfig.Worlds`
+- **Nunca cachear `EconomyConfig.current()` en un local de fichero.** Se llama dentro de la
+  función; un alias resuelto en el require es lo que acabaría pagando tarifas de World 1 en World 2
+- **World 3 = una fila en `WorldsConfig.Worlds`, una en `.Order`, y un bloque en cada config
+  de balance.** Ningún servicio se toca
+- **`MountsConfig.MountTiers` NO son places** — es la pestaña de tiers de monturas del Index.
+  Comparte el nombre "World1" por accidente histórico y no tiene nada que ver
+- El perfil es **compartido entre places** (mismo universe, ProfileStore bloquea por sesión):
+  un solo `Level`, `WinCurrency`, `Rebirth`, `Mounts`, `StepsEquipped`. Es deliberado, World 2
+  es continuidad. La excepción es `HighestStageReached`, que colisionaba: World 1 conserva la
+  clave sin sufijo (para no invalidar datos ni dashboards) y los demás usan
+  `HighestStageReached_<Key>`
+- **`MessagingService` es global al universe**: Weather y los comandos cross-server de Admin
+  llegan también a los servers de World 2, sin filtro de place
+
+## Economía multi-mundo
+- Los `StepsIncresement` los siembra `EconomyService` desde el config, repartidos por posición
+  (ver "Atributos de Workspace"). En el `.rbxl` de un place nuevo no hay que ponerlos a mano
+- **INVARIANTE: los `StepsIncresement` tienen que ser ÚNICOS entre TODOS los mundos.** La clave
+  de datos es plana (`StepUnlocked_<N>`), así que un increment repetido se regalaría solo. Hay
+  una aserción que revienta al cargar `EconomyConfig` si se incumple
+- La **cadena de steps es GLOBAL**: `EconomyConfig.getStepChain()` une todos los mundos en orden
+  de `WorldsConfig.Order`, y `StepsService` la usa para el check anti-salto. Para comprar el
+  x4.000 de World 2 hacen falta los doce de World 1. **No volver a derivarla del escaneo de
+  Workspace**: así es como se podía saltar World 1 entero
+- `Steps` es un ARRAY ORDENADO, no un mapa: el orden ES la cadena y no se infiere de un
+  `table.sort` (que solo funciona mientras los increments sean globalmente ascendentes)
+- La **frontera es de ×341** (stage 14 de World 1 = 2.200 Wins → stage 2 de World 2 = 750.000)
+  sobre un `WinCurrency` compartido. Por eso existe `WorldsService`
+- El tramo de World 2 (niveles 131..175) **no es arbitrario**: su cadena de steps multiplica el
+  ingreso ×4000 y `ln(4000)/ln(1.204) = 44.7` niveles. Si se alarga el mundo hay que pagarlo
+  con más cadena de steps
+- **Los 13 botones premium siguen compartiendo un único ProductId.** Ese mismo precio compra
+  2 Wins en el stage 2 de World 1 y 400.000.000 en el stage 14 de World 2: todo comprador
+  racional compra en el último stage del último mundo. Sin resolver
+
+## Puerta de entrada a un mundo (WorldsService)
+- Cada mundo declara `RequiresWorld`; la condición es tener **completa la cadena de steps** de
+  ese mundo. Si falta alguno, `TeleportService` devuelve al jugador al mundo anterior
+- **La condición son los STEPS, no el nivel**: un rebirth hecho estando en World 2 resetea
+  `Level` a 1, así que un gate por nivel expulsaría al jugador legítimo. Los steps son compra
+  única y sobreviven al rebirth
+- En Studio **no teleporta** (no funciona entre places): avisa por consola y deja pasar
+- World 1 no tiene `RequiresWorld` → ni se conecta la señal
+
 ## Sistema de mounts
 - MorphService.MorphPlayer(player, mountName) aplica el morph — pone `player.Character = mountModel` con atributo `IsMountCharacter = true`
 - MountsConfig.luau está en Shared (no en server) — tanto cliente como servidor lo usan
@@ -184,7 +239,18 @@
   se versione en git y no en el `.rbxl`
 - `EconomyService:seedWorkspace()` DEBE correr antes de `WinsService:init` y `StepsService:init` —
   ambos leen esos atributos una sola vez y los cachean (`buildStepsMap` nunca re-escanea)
-- Fuera de este sistema (siguen a mano en Studio): multiplicadores de treadmill y `StepsIncresement`
+- Los `StepsIncresement` **también se siembran** desde `EconomyConfig` (antes iban a mano). El
+  reparto va **por POSICIÓN**, no por orden de `GetChildren()` (que es el de inserción en el
+  `.rbxl` y no dice nada): de abajo arriba en Y, y dentro de cada fila de izquierda a derecha en X.
+  En World 1 reproduce exactamente el reparto que ya había. **Si en un place los botones no están
+  dispuestos así, el reparto sale mal** — es la única suposición de layout de todo el seeding
+- Los carteles de los steps no hay que tocarlos: el cliente los escribe desde los dos atributos
+  (`"+N/Steps"` y `"<n> Wins Required"`), así que sembrar el atributo actualiza el texto solo
+- Fuera de este sistema (sigue a mano en Studio): los multiplicadores de treadmill
+- La siembra usa el bloque del **mundo de este place**. Sembrar el mundo equivocado no da error
+  en ningún sitio (los nombres de stage son idénticos), solo pagaría tarifas del otro mundo: de
+  ahí los dos warnings de cobertura de `_seedStages`. **Tratar cualquiera de los dos como
+  bloqueante** — significa que config y geometría discrepan sobre qué place es este
 
 ### Cómo revalidar un cambio de balance
 - Hay un modelo en JS que parsea los `.luau` reales y simula un jugador (ingreso/s, compras greedy,
@@ -254,6 +320,14 @@
   `Name == "Steps"` dentro de `Workspace.StepsButtons`. Un botón tageado pero fuera de esa carpeta
   se ve y se puede pisar, pero el servidor lo rechaza
 - `"Lava"` → kill brick (tag hardcodeado en `LavaService`)
+- `"Ice"` → superficie resbaladiza (tag hardcodeado en `IceService`). Vale en una BasePart o en
+  un Model (entonces resbalan todas sus partes), igual que Lava. NO usa Touched ni ningún bucle:
+  baja el rozamiento con `CustomPhysicalProperties`, y las propiedades replican solas al cliente
+  — por eso no hay nada en el cliente. Conserva densidad y elasticidad de la parte: solo toca
+  el rozamiento. Al quitar el tag restaura lo que hubiera antes (incluido "ninguno")
+- Sobre el hielo, **la palanca real es `ICE_FRICTION_WEIGHT`, no `ICE_FRICTION`**: Roblox mezcla
+  el rozamiento de las dos superficies ponderado por sus pesos, así que con peso 1 el 0.3 del
+  personaje domina la media y no se nota nada. El peso alto (100) es lo que hace que mande el hielo
 
 ## Trampas conocidas (sin arreglar)
 - **Treadmill validado por máximo global**: `getMaxTreadmillMultiplier` comprueba si el jugador

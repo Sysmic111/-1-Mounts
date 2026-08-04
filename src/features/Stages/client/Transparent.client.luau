@@ -21,12 +21,17 @@ local RunService        = game:GetService("RunService")
 local Workspace         = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 -- ── Tunables ──────────────────────────────────────────────────────────────────
 local TAG             = "Transparent"
-local REFERENCE_LEVEL = 130   -- nivel que alcanza a cruzarla antes de que desaparezca
-local INVISIBLE_HOLD  = 3     -- s que permanece invisible y sin colisión
+-- Calibración por mundo (ver ObstaclesConfig). INVISIBLE_HOLD está en segundos
+-- ABSOLUTOS, así que también va por mundo.
+local CONFIG = ObstaclesConfig.get("Transparent")
+
+local REFERENCE_LEVEL = CONFIG.Level                   -- nivel que alcanza a cruzarla antes de que desaparezca
+local INVISIBLE_HOLD  = CONFIG.InvisibleHold or 3      -- s que permanece invisible y sin colisión
 local REF_SPEED       = SpeedConfig.getWalkSpeedForLevel(REFERENCE_LEVEL)  -- studs/s
 
 -- ── Estado ────────────────────────────────────────────────────────────────────

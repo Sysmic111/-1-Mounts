@@ -16,13 +16,15 @@ local RunService        = game:GetService("RunService")
 local Workspace         = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
-local Packets     = require(ReplicatedStorage.Shared.Packets)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local Packets         = require(ReplicatedStorage.Shared.Packets)
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 local player = Players.LocalPlayer
 
 -- ── Tunables ──────────────────────────────────────────────────────────────────
-local REFERENCE_LEVEL    = 80
+-- Calibración por mundo (ver ObstaclesConfig).
+local REFERENCE_LEVEL    = ObstaclesConfig.get("Totem").Level
 local ROT_DEG_PER_SEC    = SpeedConfig.getWalkSpeedForLevel(REFERENCE_LEVEL)  -- °/s
 local ROT_RAD_PER_SEC    = ROT_DEG_PER_SEC * math.pi / 180
 local PLAYER_RADIUS      = 2.5

@@ -12,9 +12,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService      = game:GetService("SoundService")
 local TweenService      = game:GetService("TweenService")
 
-local Packets     = require(ReplicatedStorage.Shared.Packets)
-local RaceConfig  = require(ReplicatedStorage.Shared.RaceConfig)
-local MenuManager = require(ReplicatedStorage.Shared.MenuManager)
+local Packets      = require(ReplicatedStorage.Shared.Packets)
+local RaceConfig   = require(ReplicatedStorage.Shared.RaceConfig)
+local MenuManager  = require(ReplicatedStorage.Shared.MenuManager)
+local FormatNumber = require(ReplicatedStorage.Packages.FormatNumber)
 
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -45,24 +46,17 @@ local pendingStage: number? = nil
 -- Overlay de cuenta atrás / resultado
 --------------------------------------------------------------------------------
 
--- Un único ScreenGui con un único TextLabel, reusado para los números y para el
--- texto final. DisplayOrder 280: por encima del banner de AdminAbuse (260) y por
--- debajo del aviso de NewPlayerBonus (300).
-local function buildOverlay(): TextLabel
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "RaceCountdown"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	gui.DisplayOrder = 280
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	gui.Parent = playerGui
-
+-- Un único ScreenGui con dos TextLabel: el grande, reusado para los números de la
+-- cuenta atrás y para el texto final, y uno pequeño debajo para el premio (solo se
+-- usa al terminar la carrera). DisplayOrder 280: por encima del banner de
+-- AdminAbuse (260) y por debajo del aviso de NewPlayerBonus (300).
+local function buildLabel(gui: ScreenGui, name: string, position: UDim2, size: UDim2, minText: number, maxText: number): TextLabel
 	local label = Instance.new("TextLabel")
-	label.Name = "Value"
+	label.Name = name
 	label.BackgroundTransparency = 1
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.5)
-	label.Size = UDim2.fromScale(0.6, 0.3)
+	label.Position = position
+	label.Size = size
 	label.FontFace = Font.fromName("FredokaOne")
 	label.Text = ""
 	label.TextColor3 = WHITE
@@ -81,21 +75,43 @@ local function buildOverlay(): TextLabel
 	stroke.Parent = label
 
 	local sizeConstraint = Instance.new("UITextSizeConstraint")
-	sizeConstraint.MinTextSize = 40
-	sizeConstraint.MaxTextSize = 180
+	sizeConstraint.MinTextSize = minText
+	sizeConstraint.MaxTextSize = maxText
 	sizeConstraint.Parent = label
 
 	return label
 end
 
-local overlay = buildOverlay()
+local function buildOverlay(): (TextLabel, TextLabel)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "RaceCountdown"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 280
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = playerGui
+
+	local main = buildLabel(gui, "Value", UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.6, 0.3), 40, 180)
+
+	-- Justo debajo del grande: este ocupa de 0.35 a 0.65 en Y, así que el premio
+	-- arranca en 0.70. Más pequeño a propósito — es el subtítulo, no el titular.
+	local reward = buildLabel(gui, "Reward", UDim2.fromScale(0.5, 0.72), UDim2.fromScale(0.4, 0.08), 20, 60)
+
+	return main, reward
+end
+
+local overlay, rewardLabel = buildOverlay()
 local overlayStroke = overlay:FindFirstChildOfClass("UIStroke") :: UIStroke
+local rewardStroke  = rewardLabel:FindFirstChildOfClass("UIStroke") :: UIStroke
 
 -- Invalida la animación anterior: si llega un número nuevo (o el resultado) antes de
 -- que el anterior termine de desvanecerse, el viejo se abandona sin tocar el label.
 local generation = 0
 
-local function showOverlay(text: string, color: Color3, hold: number): ()
+-- `reward` nil = solo el texto grande (es el caso de la cuenta atrás). El label del
+-- premio se apaga siempre al empezar, para que un "You Won +5 Wins" no deje el
+-- subtítulo colgado si luego se reutiliza el overlay.
+local function showOverlay(text: string, color: Color3, hold: number, reward: string?): ()
 	generation += 1
 	local myGen = generation
 
@@ -113,16 +129,27 @@ local function showOverlay(text: string, color: Color3, hold: number): ()
 		{ Size = UDim2.fromScale(0.6, 0.3) }
 	):Play()
 
+	rewardLabel.Visible = reward ~= nil
+	if reward then
+		rewardLabel.Text = reward
+		rewardLabel.TextColor3 = color
+		rewardLabel.TextTransparency = 0
+		rewardStroke.Transparency = 0
+	end
+
 	task.delay(hold, function()
 		if myGen ~= generation then return end
 
 		local fadeInfo = TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 		TweenService:Create(overlay, fadeInfo, { TextTransparency = 1 }):Play()
 		TweenService:Create(overlayStroke, fadeInfo, { Transparency = 1 }):Play()
+		TweenService:Create(rewardLabel, fadeInfo, { TextTransparency = 1 }):Play()
+		TweenService:Create(rewardStroke, fadeInfo, { Transparency = 1 }):Play()
 
 		task.delay(FADE_TIME, function()
 			if myGen ~= generation then return end
 			overlay.Visible = false
+			rewardLabel.Visible = false
 		end)
 	end)
 end
@@ -174,10 +201,15 @@ Packets.RaceCountdown.OnClientEvent:Connect(function(text: string)
 	end
 end)
 
-Packets.RaceResult.OnClientEvent:Connect(function(won: boolean, _earned: number)
+Packets.RaceResult.OnClientEvent:Connect(function(won: boolean, earned: number)
+	-- Perder también paga (RaceConfig.LoseFactor), así que el premio se enseña en los
+	-- dos casos. El servidor manda lo ACREDITADO —con rebirth y weather ya aplicados—,
+	-- no la base del stage, así que este número es el que entra en WinCurrency.
+	local reward = "+" .. FormatNumber:formatNumberCoins(earned) .. " Wins"
+
 	if won then
-		showOverlay("You Won", GREEN, RESULT_HOLD)
+		showOverlay("You Won", GREEN, RESULT_HOLD, reward)
 	else
-		showOverlay("You Lost", RED, RESULT_HOLD)
+		showOverlay("You Lost", RED, RESULT_HOLD, reward)
 	end
 end)

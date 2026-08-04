@@ -10,6 +10,7 @@ local EconomyConfig   = require(ReplicatedStorage.Shared.EconomyConfig)
 local MountsConfig    = require(ReplicatedStorage.Shared.MountsConfig)
 local Packets         = require(ReplicatedStorage.Shared.Packets)
 local RebirthConfig   = require(ReplicatedStorage.Shared.RebirthConfig)
+local WorldsConfig    = require(ReplicatedStorage.Shared.WorldsConfig)
 
 type DataServiceServer = {
 	waitForData: (self: DataServiceServer, player: Player) -> any,
@@ -39,11 +40,9 @@ local checkoutSteps: { [string]: number } = {
 	PurchaseConfirmed = 4,
 }
 
-local stepIncrements: { number } = {}
-for increment in EconomyConfig.StepPrices do
-	table.insert(stepIncrements, increment)
-end
-table.sort(stepIncrements)
+-- La cadena de steps de TODOS los mundos, en orden de progresión: el índice del
+-- funnel es monótono entre places (el índice 13 es el primer step de World 2).
+local stepIncrements: { number } = EconomyConfig.getStepChain()
 
 local FunnelService = {
 	_dataService = nil :: DataServiceServer?,
@@ -148,8 +147,9 @@ function FunnelService:_logInitialProgress(player: Player, compactBackfill: bool
 	if not ds then return end
 	local cohort = self:_cohort(player)
 
-	local stagesSession = stableSession(player, "World1")
-	self:_log(player, AnalyticsConfig.Funnels.Stages, stagesSession, 1, "World 1 Entered", fields(cohort, "Progression", "World1"))
+	local world = WorldsConfig.current()
+	local stagesSession = stableSession(player, world.Key)
+	self:_log(player, world.StagesFunnel, stagesSession, 1, world.Name .. " Entered", fields(cohort, "Progression", world.Key))
 
 	local mountsSession = stableSession(player, "Mounts")
 	self:_log(player, AnalyticsConfig.Funnels.Mounts, mountsSession, 1, "Chonk Owned", fields(cohort, "Progression", "World1Mounts"))
@@ -337,13 +337,35 @@ function FunnelService:onProgressChanged(player: Player): ()
 	self:_syncRebirthCycle(player, false)
 end
 
+-- Clave del progreso de stages EN ESTE MUNDO. World 1 conserva la clave histórica
+-- para no invalidar los datos ya guardados ni los dashboards; los demás mundos
+-- usan una clave con sufijo, creada on-demand igual que los StepUnlocked_<N>.
+local function highestStageKey(world: WorldsConfig.WorldData): string
+	if world.Key == "World1" then
+		return "HighestStageReached"
+	end
+	return "HighestStageReached_" .. world.Key
+end
+
 function FunnelService:onStageReached(player: Player, stage: number): ()
 	local ds = self._dataService
-	if not ds or not ds:hasProfile(player) or stage < 2 or stage > 14 then return end
-	local highest = (ds:get(player, { "HighestStageReached" }) or 1) :: number
+	if not ds or not ds:hasProfile(player) then return end
+
+	-- El rango de stages sale del balance del mundo, no de un 2..14 literal: el
+	-- literal seguiría "funcionando" hoy porque los dos mundos van del 2 al 14, y
+	-- se volvería silenciosamente falso en cuanto un mundo tenga otro número.
+	local world = WorldsConfig.current()
+	if EconomyConfig.current().StageWins[stage] == nil then return end
+
+	local key = highestStageKey(world)
+	local highest = (ds:get(player, { key }) or 1) :: number
 	if stage <= highest then return end
-	ds:set(player, { "HighestStageReached" }, stage)
-	self:_log(player, AnalyticsConfig.Funnels.Stages, stableSession(player, "World1"), stage, "Stage " .. tostring(stage) .. " Reached", nil)
+	ds:set(player, { key }, stage)
+
+	-- El funnel es por mundo, y no es solo cosmético: _markOnce indexa por
+	-- `funnel .. ":" .. step`, así que compartiendo nombre el "Stage 5 Reached" de
+	-- World 2 se deduplicaría contra el de World 1 durante toda la sesión.
+	self:_log(player, world.StagesFunnel, stableSession(player, world.Key), stage, "Stage " .. tostring(stage) .. " Reached", nil)
 end
 
 function FunnelService:onMountUnlocked(player: Player, mountName: string): ()

@@ -18,7 +18,9 @@ local AnalyticsConfig = {
 
 	Funnels = {
 		Onboarding = "NewPlayerOnboardingV1",
-		Stages = "World1StagesV1",
+		-- El funnel de stages ya NO está aquí: es uno por place y vive en
+		-- WorldsConfig.<world>.StagesFunnel. World 1 conserva la cadena exacta
+		-- "World1StagesV1" para no partir su histórico.
 		Mounts = "MountEvolutionV1",
 		RebirthProgression = "RebirthProgressionV1",
 		RebirthCycle = "RebirthCycleV1",

@@ -12,6 +12,10 @@ const project = {
     ReplicatedStorage: {
       Shared: { $path: "src/shared" },
       Packages: { $path: "Packages" },
+      // Modelos .rbxm/.rbxmx sueltos (sin código), compartidos por ambos places.
+      // Cualquier archivo que se meta en la carpeta RojoShared/ del repo aparece
+      // aquí tal cual — Rojo lo sincroniza igual que un script.
+      RojoShared: { $path: "RojoShared" },
     },
 
     ServerScriptService: {

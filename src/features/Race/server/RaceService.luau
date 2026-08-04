@@ -36,7 +36,9 @@ type DataServiceServer = {
 }
 
 type WinsServiceLike = {
-	awardWins: (self: any, player: Player, amount: number) -> (),
+	-- Devuelve lo acreditado de verdad, que NO es `amount`: WinsService le aplica el
+	-- multiplicador de rebirth y el WeatherWinsBoost.
+	awardWins: (self: any, player: Player, amount: number) -> number,
 	teleportToSpawn: (self: any, player: Player) -> (),
 }
 
@@ -158,6 +160,17 @@ function RaceService:init(dataService: DataServiceServer, winsService: WinsServi
 		local stageNumber = getStageNumber(child.Name)
 		if stageNumber == 0 then continue end
 
+		-- Sin montura asignada no se registra la pista: no entra en _tracks, así que
+		-- _canRace la rechaza y ni siquiera se conecta el ProximityPrompt. Es el
+		-- estado de World 2 hasta que existan las monturas de esos niveles, y es
+		-- preferible a montar el NPC sobre una montura equivocada o a que
+		-- BuildMountRig falle al no encontrar el modelo.
+		local cfg = RaceConfig.get(stageNumber)
+		if cfg.Mount == "" then
+			warn(`[Race] Stage {stageNumber}: sin montura asignada — carrera deshabilitada`)
+			continue
+		end
+
 		local track = buildTrack(child, stageNumber)
 		if track then
 			self._tracks[stageNumber] = track
@@ -179,15 +192,238 @@ function RaceService:init(dataService: DataServiceServer, winsService: WinsServi
 	end)
 end
 
+-- Viste al NPC con el outfit de su stage. Se llama UNA sola vez por rig, al
+-- arrancar el server: el corredor de cada carrera es un clon de este mismo rig
+-- (MorphService.BuildMountRig clona track.npcModel), así que hereda la ropa sin
+-- que haya que vestirlo otra vez en cada carrera.
+--
+-- Se parte de GetAppliedDescription() y no de una HumanoidDescription vacía: así
+-- se respeta la anatomía que el rig trae del .rbxl (meshes de las partes del
+-- cuerpo y escalas) y el config manda solo sobre el vestuario. Todos los slots de
+-- ropa/accesorio se escriben siempre, incluso vacíos, para que el config sea la
+-- verdad completa: quitar un id de RaceConfig le quita la prenda al NPC.
+--
+-- CEDE (ApplyDescription hace llamadas web), por eso corre en su propia corrutina
+-- desde _setupTrack: un stage con la web lenta no puede retrasar el registro de
+-- las demás pistas ni la conexión de los packets.
+local function applyOutfit(npcModel: Model, stage: number): ()
+	local humanoid = npcModel:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		warn(`[Race] Stage {stage}: el Npc no tiene Humanoid, no se le puede aplicar el outfit`)
+		return
+	end
+
+	local outfit = RaceConfig.getOutfit(stage)
+
+	-- HumanoidDescription guarda los accesorios como ids separados por comas.
+	local function idList(ids: { number }): string
+		local parts = {}
+		for _, id in ids do
+			if id > 0 then
+				table.insert(parts, tostring(id))
+			end
+		end
+		return table.concat(parts, ",")
+	end
+
+	local ok, applied = pcall(function()
+		return humanoid:GetAppliedDescription()
+	end)
+	local desc = if ok and applied then applied :: HumanoidDescription else Instance.new("HumanoidDescription")
+
+	desc.Shirt         = outfit.Shirt
+	desc.Pants         = outfit.Pants
+	desc.GraphicTShirt = outfit.TShirt
+	desc.Face          = outfit.Face
+
+	desc.HairAccessory      = idList(outfit.Hair)
+	desc.HatAccessory       = idList(outfit.Hats)
+	desc.FaceAccessory      = idList(outfit.FaceAccessories)
+	desc.FrontAccessory     = idList(outfit.Front)
+	desc.BackAccessory      = idList(outfit.Back)
+	desc.NeckAccessory      = idList(outfit.Neck)
+	desc.ShouldersAccessory = idList(outfit.Shoulders)
+	desc.WaistAccessory     = idList(outfit.Waist)
+
+	local skin = outfit.SkinColor
+	if skin then
+		desc.HeadColor     = skin
+		desc.TorsoColor    = skin
+		desc.LeftArmColor  = skin
+		desc.RightArmColor = skin
+		desc.LeftLegColor  = skin
+		desc.RightLegColor = skin
+	end
+
+	local scale = outfit.Scale
+	if scale then
+		desc.HeightScale     = scale.Height     or desc.HeightScale
+		desc.WidthScale      = scale.Width      or desc.WidthScale
+		desc.HeadScale       = scale.Head       or desc.HeadScale
+		desc.DepthScale      = scale.Depth      or desc.DepthScale
+		desc.BodyTypeScale   = scale.BodyType   or desc.BodyTypeScale
+		desc.ProportionScale = scale.Proportion or desc.ProportionScale
+	end
+
+	local applyOk, err = pcall(function()
+		humanoid:ApplyDescription(desc)
+	end)
+	if not applyOk then
+		warn(`[Race] Stage {stage}: falló ApplyDescription — {err}`)
+	end
+end
+
+-- Deja al NPC clavado en su sitio pero ANIMABLE: se ancla solo el
+-- HumanoidRootPart y se desancla el resto.
+--
+-- Anclar todas las partes (que es lo que se hacía antes) mata la animación: un
+-- BasePart anclado no lo mueve nadie, tampoco el Animator, así que el rig se
+-- queda en pose T por mucho que el track esté sonando. Con solo el root anclado
+-- el ensamblado entero sigue sin caerse ni deambular —cuelga de él por las
+-- juntas— y las extremidades quedan libres para que las pose la animación.
+local function anchorRootOnly(npcModel: Model): ()
+	local hrp = npcModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	for _, d in npcModel:GetDescendants() do
+		if d:IsA("BasePart") then
+			(d :: BasePart).Anchored = (d == hrp)
+		end
+	end
+	if hrp then
+		hrp.Anchored = true
+	end
+end
+
+-- El saludo en bucle del NPC de escaparate. Va DESPUÉS de applyOutfit:
+-- ApplyDescription reconstruye las partes del cuerpo, y un track cargado antes
+-- se quedaría animando partes que ya no existen.
+local function playIdle(npcModel: Model, stage: number): ()
+	local humanoid = npcModel:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local animation = Instance.new("Animation")
+	animation.AnimationId = RaceConfig.NpcIdleAnimation
+
+	local ok, track = pcall(function()
+		return (animator :: Animator):LoadAnimation(animation)
+	end)
+	if not ok or not track then
+		warn(`[Race] Stage {stage}: no se pudo cargar la animación idle — {track}`)
+		return
+	end
+
+	local animTrack = track :: AnimationTrack
+	animTrack.Looped = true
+	animTrack.Priority = Enum.AnimationPriority.Idle
+	animTrack:Play()
+end
+
+-- Baja el corredor hasta que las patas de la MONTURA toquen la cara superior del
+-- marcador.
+--
+-- BuildMountRig planta el HumanoidRootPart de la montura en el CFrame que se le
+-- pasa, pero ese root está en mitad del rig y cada montura mide una cosa distinta
+-- (Chonk no ocupa lo que Nyxion). Colocarlo a pelo sobre el marcador deja a las
+-- grandes flotando, así que hay que medir el rig y posarlo.
+--
+-- Lo que NO sirve aquí es model:GetBoundingBox(): el modelo lleva dentro el
+-- OriginalCharacter (el jinete), y el jinete es un clon del NPC de escaparate que
+-- nace en la posición de ESE rig, a decenas de studs de la pista, hasta que el
+-- SeatWeld lo trae encima. Si se mide antes de que llegue —o si ese frame se
+-- retrasa— la caja abarca pista y escaparate a la vez, su fondo cae por el suelo
+-- del stage y la cuenta manda SUBIR la montura al cielo. Por eso se recorren solo
+-- las partes propias de la montura y se calcula el mínimo a mano: así el resultado
+-- no depende de que la física haya llegado a tiempo.
+local function dropOntoMarker(racer: Model, marker: BasePart): ()
+	local rider = racer:FindFirstChild("OriginalCharacter")
+	local lowest: number? = nil
+
+	for _, d in racer:GetDescendants() do
+		if not d:IsA("BasePart") then continue end
+		local part = d :: BasePart
+		-- El jinete y el Seat invisible no cuentan: el suelo lo tocan las patas.
+		if rider and part:IsDescendantOf(rider) then continue end
+		if part:IsA("Seat") then continue end
+
+		-- Media altura de la part proyectada al mundo, para que valga aunque el rig
+		-- venga girado (la pista puede tener cualquier orientación).
+		local cf = part.CFrame
+		local half = part.Size / 2
+		local extentY = math.abs(cf.RightVector.Y) * half.X
+			+ math.abs(cf.UpVector.Y) * half.Y
+			+ math.abs(cf.LookVector.Y) * half.Z
+
+		local bottom = cf.Position.Y - extentY
+		if not lowest or bottom < lowest then
+			lowest = bottom
+		end
+	end
+
+	if not lowest then return end
+
+	local groundY = marker.Position.Y + (marker.Size.Y / 2)
+	racer:PivotTo(racer:GetPivot() + Vector3.new(0, groundY - lowest, 0))
+end
+
+-- Lanza la animación de andar de la montura sobre el corredor.
+--
+-- Para el jugador esto lo hace el cliente de Mounts (setupMountAnimations, colgado
+-- de humanoid.Running), pero el corredor NO es el personaje de nadie: ningún
+-- cliente lo mira, así que si no lo lanza el servidor no lo lanza nadie y la
+-- montura cruza la pista rígida. Desde el servidor se replica a todos los que
+-- estén viendo la carrera.
+local function playMountWalk(racer: Model, speed: number): ()
+	-- Ambos FindFirstChild son NO recursivos a propósito: el modelo lleva dentro el
+	-- OriginalCharacter (el jinete), que tiene su propio Humanoid. Se quiere el de
+	-- la montura, que es hijo directo.
+	local humanoid = racer:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local animFolder = racer:FindFirstChild("Animations")
+	local walkAnim = animFolder and animFolder:FindFirstChild("Walk") :: Animation?
+	if not walkAnim or not walkAnim:IsA("Animation") then return end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local ok, track = pcall(function()
+		return (animator :: Animator):LoadAnimation(walkAnim :: Animation)
+	end)
+	if not ok or not track then return end
+
+	local animTrack = track :: AnimationTrack
+	animTrack.Looped = true
+	animTrack.Priority = Enum.AnimationPriority.Movement
+
+	-- Mismo criterio que el cliente: el ritmo sigue a la velocidad real tomando 16
+	-- studs/s como la del asset, para que no patine a 95 studs/s en el stage 14.
+	local base = ((walkAnim :: Animation):GetAttribute("Speed") or 1) :: number
+	animTrack:Play(0, 1, base * (speed / 16))
+end
+
 function RaceService:_setupTrack(track: Track): ()
 	local cfg = RaceConfig.get(track.stage)
 
 	-- El NPC de escaparate no debe deambular ni caerse: se queda quieto en su sitio.
-	for _, d in track.npcModel:GetDescendants() do
-		if d:IsA("BasePart") then
-			(d :: BasePart).Anchored = true
-		end
-	end
+	anchorRootOnly(track.npcModel)
+
+	-- ApplyDescription sustituye las partes del cuerpo por otras nuevas (que vienen
+	-- sin anclar) y añade los accesorios, así que hay que repetir el anclado después.
+	-- Mientras tanto el rig no se cae: cuelga del HumanoidRootPart, que sigue anclado
+	-- y ancla todo el ensamblado.
+	task.spawn(function()
+		applyOutfit(track.npcModel, track.stage)
+		anchorRootOnly(track.npcModel)
+		playIdle(track.npcModel, track.stage)
+	end)
 
 	local prompt = track.npcModel:FindFirstChildWhichIsA("ProximityPrompt", true) :: ProximityPrompt?
 	if not prompt then
@@ -195,16 +431,19 @@ function RaceService:_setupTrack(track: Track): ()
 		return
 	end
 
-	-- En el .rbxl el prompt cuelga directamente del Model, y así Roblox no lo renderiza
-	-- ni lo dispara nunca. Se reparenta en runtime al HumanoidRootPart (el place no se
-	-- toca: todo el código del proyecto se edita aquí, no en Studio).
-	if not (prompt.Parent :: Instance):IsA("BasePart") and not (prompt.Parent :: Instance):IsA("Attachment") then
+	-- El prompt se queda DONDE LO PUSO el .rbxl (hoy: hijo directo del Model Npc). No
+	-- se reparenta: colgado del HumanoidRootPart la posición no sirve, y colgado del
+	-- Model funciona igual de bien porque un ProximityPrompt hijo de un Model se ancla
+	-- a su PrimaryPart. Lo único que hace falta es que esa PrimaryPart exista — si el
+	-- rig viniera sin ella, el prompt no se renderizaría ni se dispararía nunca, así
+	-- que se rellena con el HumanoidRootPart en vez de mover el prompt.
+	if not track.npcModel.PrimaryPart then
 		local hrp = track.npcModel:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not hrp then
-			warn(`[Race] Stage {track.stage}: el Npc no tiene HumanoidRootPart donde poner el prompt`)
+			warn(`[Race] Stage {track.stage}: el Npc no tiene PrimaryPart ni HumanoidRootPart; el prompt no se verá`)
 			return
 		end
-		prompt.Parent = hrp
+		track.npcModel.PrimaryPart = hrp
 	end
 
 	prompt.ObjectText = cfg.NpcName
@@ -302,6 +541,16 @@ function RaceService:_run(race: ActiveRace): ()
 	racer.Name = RaceConfig.RacerName
 	race.racer = racer
 
+	-- El jinete es un clon del NPC de escaparate, y ese rig lleva colgando el
+	-- ProximityPrompt. Sin borrarlo, el corredor se pasea por la pista con un prompt
+	-- activable encima: cualquiera podría lanzar otra carrera desde él. Se quita del
+	-- clon (el original no se toca, sigue en su sitio para el resto de jugadores).
+	for _, d in racer:GetDescendants() do
+		if d:IsA("ProximityPrompt") then
+			d:Destroy()
+		end
+	end
+
 	-- Un paso de física antes de anclar: el SeatWeld que acaba de crear el Sit coloca
 	-- al NPC sobre la montura en el siguiente Heartbeat. Anclando en el mismo frame se
 	-- quedaría flotando al lado en vez de encima.
@@ -310,11 +559,17 @@ function RaceService:_run(race: ActiveRace): ()
 
 	-- Anclado: se mueve por PivotTo autoritativo, no por física. Sin anclar, la física
 	-- del server pelea con el PivotTo (mismo motivo que en RingEnemyService).
-	for _, d in racer:GetDescendants() do
-		if d:IsA("BasePart") then
-			(d :: BasePart).Anchored = true
-		end
-	end
+	--
+	-- Pero se ancla SOLO el HumanoidRootPart de la montura, no todas las partes: un
+	-- BasePart anclado no lo mueve el Animator, así que anclarlo todo congelaba tanto
+	-- la animación de andar de la montura como la del jinete. Con el root anclado el
+	-- conjunto sigue siendo autoritativo (el resto cuelga de él por las juntas, el
+	-- Seat y el SeatWeld) y las extremidades quedan libres para animarse.
+	anchorRootOnly(racer)
+
+	-- Posado sobre el marcador, ya con todo quieto: se mide DESPUÉS de anclar para que
+	-- ninguna part siga cayendo mientras se calcula el mínimo.
+	dropOntoMarker(racer, track.npcMarker)
 
 	-- Cuenta atrás. El último paso ("Start!") da la salida.
 	for index, text in RaceConfig.CountdownSteps do
@@ -335,6 +590,10 @@ function RaceService:_run(race: ActiveRace): ()
 
 	self:_unfreeze(race)
 	race.startedAt = os.clock()
+
+	-- La montura echa a andar justo cuando empieza a moverse, no antes: durante la
+	-- cuenta atrás está parada en la línea de salida.
+	playMountWalk(racer, cfg.NpcSpeed)
 
 	race.heartbeat = RunService.Heartbeat:Connect(function(dt: number)
 		self:_step(race, dt)
@@ -434,15 +693,18 @@ function RaceService:_finish(race: ActiveRace, won: boolean): ()
 	local player = race.player
 	local winsService = self._winsService
 
-	local base   = EconomyConfig.StageWins[race.track.stage] or 0
+	local base   = EconomyConfig.current().StageWins[race.track.stage] or 0
 	local factor = if won then RaceConfig.WinFactor else RaceConfig.LoseFactor
 	local earned = math.max(1, math.round(base * factor))
 
 	self:_cleanup(race)
 
 	if winsService and player:IsDescendantOf(Players) then
-		winsService:awardWins(player, earned)
-		Packets.RaceResult:FireClient(player, won, earned)
+		-- Se manda al cliente lo ACREDITADO, no `earned`: awardWins le aplica encima el
+		-- multiplicador de rebirth y el del weather, así que enseñar `earned` diría
+		-- "+2 Wins" a un jugador que acaba de recibir 52.
+		local credited = winsService:awardWins(player, earned)
+		Packets.RaceResult:FireClient(player, won, credited)
 		winsService:teleportToSpawn(player)
 	end
 end

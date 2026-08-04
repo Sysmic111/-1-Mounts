@@ -21,13 +21,18 @@ local RunService        = game:GetService("RunService")
 local Workspace         = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 -- ── Tunables ──────────────────────────────────────────────────────────────────
-local REFERENCE_LEVEL = 90
+-- Calibración por mundo (ver ObstaclesConfig). WAIT_TIME está en segundos
+-- ABSOLUTOS, así que también va por mundo o se desajusta al subir la velocidad.
+local CONFIG = ObstaclesConfig.get("LavaRise")
+
+local REFERENCE_LEVEL = CONFIG.Level
 local MAX_SIZE_Y      = 200                                          -- altura máxima
 local RISE_SPEED      = SpeedConfig.getWalkSpeedForLevel(REFERENCE_LEVEL) /2.5 -- studs/s
-local WAIT_TIME       = 1.5                                          -- s de espera antes de crecer
+local WAIT_TIME       = CONFIG.WaitTime or 1.5                       -- s de espera antes de crecer
 
 -- ── Estado ────────────────────────────────────────────────────────────────────
 type Lava = {

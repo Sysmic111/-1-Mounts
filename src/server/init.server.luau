@@ -14,6 +14,7 @@ local PlayTimeService  = require(ServerScriptService.PlayTime.PlayTimeService)
 local AgilityService   = require(ServerScriptService.Agility.AgilityService)
 local StagesService    = require(ServerScriptService.Stages.StagesService)
 local LavaService      = require(ServerScriptService.Stages.LavaService)
+local IceService       = require(ServerScriptService.Stages.IceService)
 local RingEnemyService = require(ServerScriptService.Stages.RingEnemyService)
 local RobuxService     = require(ServerScriptService.Robux.RobuxService)
 local StepsService     = require(ServerScriptService.Steps.StepsService)
@@ -34,6 +35,7 @@ local MorphService     = require(ServerScriptService.Mounts.MorphService)
 local AdminService     = require(ServerScriptService.Admin.AdminService)
 local WeatherService   = require(ServerScriptService.Weather.WeatherService)
 local RaceService      = require(ServerScriptService.Race.RaceService)
+local WorldsService    = require(ServerScriptService.Worlds.WorldsService)
 local FunnelService    = require(script.FunnelService)
 
 DataService:init({
@@ -88,7 +90,11 @@ DataService:init({
 		AnalyticsRebirthCycle     = 0,
 		AnalyticsRebirthCycleStep = 0,
 		AnalyticsDailyLoggedDay    = 0,
-		HighestStageReached       = 1,
+		-- Progreso de stages POR MUNDO. World 1 conserva la clave sin sufijo para no
+		-- invalidar los datos ya guardados ni los dashboards; los demás mundos llevan
+		-- "HighestStageReached_<Key>" (ver FunnelService.highestStageKey).
+		HighestStageReached        = 1,
+		HighestStageReached_World2 = 1,
 		-- Bonus de jugador nuevo (15 min seguidos = montura Premium gratis).
 		-- Cuenta las sesiones en las que YA se ofreció: al alcanzar
 		-- NewPlayerBonusConfig.MaxSessions la oferta caduca para siempre. El reloj
@@ -103,6 +109,11 @@ DataService:init({
 -- WinsService y StepsService los leen una única vez en su init y los cachean, así
 -- que esto tiene que ir antes que ellos o se quedarían con los valores viejos.
 EconomyService:seedWorkspace()
+
+-- Puerta de entrada al mundo: en World 1 no hace nada (no tiene RequiresWorld);
+-- en World 2 devuelve a World 1 a quien no traiga su cadena de steps completa.
+-- Va pronto para atajar antes de que el resto de servicios le monten la sesión.
+WorldsService:init(DataService)
 
 FunnelService:init(DataService)
 
@@ -123,6 +134,7 @@ SpeedService:setPlayTimeService(PlayTimeService)
 AgilityService:init(DataService)
 StagesService:init(DataService, RobuxService)
 LavaService:init()
+IceService:init()
 RingEnemyService:init()
 DeathEffectService:init()
 RobuxService:init(DataService)

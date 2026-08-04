@@ -201,10 +201,14 @@ end
 -- MorphPlayer. Así el mismo rigging (Seat invisible + RigidConstraint al attachment
 -- Root.Torso.Seat + animación del rider) sirve para el morph del jugador y para los
 -- NPC de las carreras, sin duplicar el código de los attachments.
+-- Los rigs de las monturas viven en RojoShared.Mounts (RojoShared/Mounts/ en el
+-- repo, como archivos .rbxm) y no sueltos en ReplicatedStorage: así Rojo los
+-- sincroniza en los dos places sin que haya que copiarlos a mano en cada uno.
 function MorphService.BuildMountRig(mountName: string, rider: Model, cframe: CFrame): Model?
-	local mountsFolder = ReplicatedStorage:FindFirstChild("Mounts")
+	local rojoShared = ReplicatedStorage:FindFirstChild("RojoShared")
+	local mountsFolder = rojoShared and rojoShared:FindFirstChild("Mounts")
 	if not mountsFolder then
-		warn("[MorphService] No se encontró ReplicatedStorage.Mounts")
+		warn("[MorphService] No se encontró ReplicatedStorage.RojoShared.Mounts")
 		return nil
 	end
 
@@ -223,7 +227,20 @@ function MorphService.BuildMountRig(mountName: string, rider: Model, cframe: CFr
 		return nil
 	end
 
-	newHRP.CFrame = cframe
+	-- Se mueve el MODELO ENTERO, no solo el HumanoidRootPart.
+	--
+	-- Poner `newHRP.CFrame = cframe` a pelo movía una única part. Los meshes del rig
+	-- daba igual, porque van por Bones/Motor6D y se recolocan solos al entrar al
+	-- DataModel — pero el "HitBox" (el collider de la montura) se une con un
+	-- WeldConstraint, que NO tiene offset explícito: se queda donde estaba en la
+	-- plantilla y al parentear congela esa separación. Resultado: la caja de
+	-- colisión de la montura quedaba a cientos de studs del jugador.
+	--
+	-- PrimaryPart se fija al HRP para que el pivot sea exactamente el mismo punto que
+	-- se usaba antes: así PivotTo(cframe) deja el HRP donde lo dejaba la línea vieja,
+	-- pero arrastrando rígidamente todo lo demás, esté unido por lo que esté unido.
+	newChar.PrimaryPart = newHRP
+	newChar:PivotTo(cframe)
 
 	for _, part in newChar:GetDescendants() do
 		if part:IsA("BasePart") then

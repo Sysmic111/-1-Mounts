@@ -13,12 +13,17 @@ local RunService        = game:GetService("RunService")
 local Workspace         = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 -- ── Tunables ──────────────────────────────────────────────────────────────────
-local REFERENCE_LEVEL = 60
+-- Calibración por mundo (ver ObstaclesConfig). ROLL_RPS acompaña a MOVE_SPEED para
+-- que el rodillo no patine visualmente al subir la velocidad.
+local CONFIG = ObstaclesConfig.get("Tronco")
+
+local REFERENCE_LEVEL = CONFIG.Level
 local MOVE_SPEED      = SpeedConfig.getWalkSpeedForLevel(REFERENCE_LEVEL)  -- studs/s
-local ROLL_RPS        = 1.5  -- rotaciones por segundo
+local ROLL_RPS        = CONFIG.RollRps or 1.5  -- rotaciones por segundo
 
 -- ── Estado ────────────────────────────────────────────────────────────────────
 type Tronco = {

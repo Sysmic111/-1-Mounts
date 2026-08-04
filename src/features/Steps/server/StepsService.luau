@@ -3,6 +3,8 @@ local Players   = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Packets = require(game.ReplicatedStorage.Shared.Packets)
+local EconomyConfig = require(game.ReplicatedStorage.Shared.EconomyConfig)
+local WorldsConfig  = require(game.ReplicatedStorage.Shared.WorldsConfig)
 local FunnelService = require(game.ServerScriptService.Server.FunnelService)
 
 type DataServiceServer = {
@@ -14,8 +16,13 @@ type DataServiceServer = {
 
 local StepsService = {
 	_dataService       = nil :: DataServiceServer?,
+	-- Los botones que existen FÍSICAMENTE en este place. Responde a "¿es este un
+	-- botón real de aquí?" y es lo que impide que un cliente dispare el increment
+	-- de otro mundo.
 	_stepsMap          = {} :: { [number]: number }, -- stepsIncrement -> winsQuantity
-	_sortedIncrements  = {} :: { number },           -- increments ascendentes
+	-- La cadena de compra COMPLETA, de todos los mundos. Sale del config, no del
+	-- escaneo de Workspace (ver init).
+	_sortedIncrements  = {} :: { number },
 	_lastActivateTime  = {} :: { [Player]: number },
 }
 
@@ -38,18 +45,21 @@ function StepsService:init(dataService: DataServiceServer): ()
 	stepsButtonsFolder = Workspace:WaitForChild("StepsButtons") :: Folder
 	buildStepsMap(self._stepsMap)
 
-	-- Lista ordenada de increments, para validar que no se salten niveles al comprar.
-	for inc in self._stepsMap do
-		table.insert(self._sortedIncrements, inc)
-	end
-	table.sort(self._sortedIncrements)
+	-- La cadena anti-salto sale del CONFIG, no de los botones de este place.
+	--
+	-- Cuando se derivaba del escaneo de Workspace, en World 2 el increment más bajo
+	-- era su propio primer botón: se podía comprar sin haber tocado World 1. Con la
+	-- cadena global, el primer step de World 2 exige los doce de World 1.
+	self._sortedIncrements = EconomyConfig.getStepChain()
 
 	local function setupPlayer(player: Player)
 		task.spawn(function()
 			dataService:waitForData(player)
 			if not player:IsDescendantOf(Players) then return end
 
-			-- Garantizar que el primer step siempre esté desbloqueado
+			-- Garantizar que el primer step siempre esté desbloqueado. El 1 literal es
+			-- getStepChain()[1] y está también en el template de datos: si alguna vez
+			-- cambia el primer eslabón de la cadena, hay que cambiarlo en los tres sitios.
 			if dataService:get(player, { "StepUnlocked_1" }) ~= true then
 				dataService:set(player, { "StepUnlocked_1" }, true)
 			end
@@ -99,12 +109,24 @@ function StepsService:_handleActivate(player: Player, stepsIncrement: number): (
 
 	local newlyUnlocked = ds:get(player, { flatKey }) ~= true
 	if newlyUnlocked then
-		-- No permitir saltarse niveles: todos los steps inferiores deben estar
-		-- comprados antes de comprar este.
+		-- No permitir saltarse niveles: todos los steps ANTERIORES EN LA CADENA deben
+		-- estar comprados antes de comprar este. La cadena abarca todos los mundos,
+		-- así que aquí es donde se exige haber terminado World 1 para empezar World 2.
+		--
+		-- Se corta al llegar a la POSICIÓN de este increment, no comparando números:
+		-- el orden del array es el orden de diseño, y no tiene por qué coincidir con
+		-- el orden numérico si algún mundo futuro no encaja al final.
 		for _, inc in self._sortedIncrements do
-			if inc >= stepsIncrement then break end
+			if inc == stepsIncrement then break end
 			if ds:get(player, { "StepUnlocked_" .. tostring(inc) }) ~= true then
-				Packets.StepActivateFailed:FireClient(player, "Buy the previous steps first!")
+				-- Decir QUÉ mundo falta: "compra los anteriores" no sirve de nada si
+				-- los que faltan están en otro place.
+				local pendingKey = EconomyConfig.getWorldForIncrement(inc)
+				local pending = pendingKey and WorldsConfig.get(pendingKey)
+				local message = if pending and pendingKey ~= WorldsConfig.currentKey()
+					then `Finish {pending.Name}'s steps first!`
+					else "Buy the previous steps first!"
+				Packets.StepActivateFailed:FireClient(player, message)
 				return
 			end
 		end

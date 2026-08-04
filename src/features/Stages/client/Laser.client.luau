@@ -26,15 +26,17 @@ local RunService        = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Packets     = require(ReplicatedStorage.Shared.Packets)
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
+local Packets         = require(ReplicatedStorage.Shared.Packets)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 local player = Players.LocalPlayer
 
 -- ── Tunables ──────────────────────────────────────────────────────────────────
 local TAG            = "Laser"
 local DISTANCE       = 150                 -- studs que avanza el láser en +X
-local REQUIRED_LEVEL = 50                  -- nivel necesario para alcanzar a pasarlo
+-- Calibración por mundo (ver ObstaclesConfig).
+local REQUIRED_LEVEL = ObstaclesConfig.get("Laser").Level  -- nivel necesario para alcanzar a pasarlo
 local MOVE_DIR       = Vector3.xAxis       -- +X del mundo
 local PLAYER_RADIUS  = 2.5                 -- margen del cuerpo del jugador para la colisión
 

@@ -21,8 +21,9 @@ local RunService        = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Packets     = require(ReplicatedStorage.Shared.Packets)
-local SpeedConfig = require(ReplicatedStorage.Shared.SpeedConfig)
+local Packets         = require(ReplicatedStorage.Shared.Packets)
+local SpeedConfig     = require(ReplicatedStorage.Shared.SpeedConfig)
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 local player = Players.LocalPlayer
 
@@ -30,9 +31,15 @@ local player = Players.LocalPlayer
 local SIDES            = { "R", "L" }
 local WALL_COUNT       = 4
 local OPEN_DISTANCE    = 60                     -- studs que la wall se desliza al abrir
-local REFERENCE_LEVEL  = 10                     -- nivel para el que se calibra el timing
-local OPEN_HOLD        = 2.5                    -- segundos que la wall queda totalmente abierta
-local RESET_GAP        = 0                    -- pausa antes de reiniciar el ciclo
+-- Calibración por mundo: el mismo "Stage 5" existe en los dos places y con las
+-- constantes de módulo un obstáculo de World 2 se movería a velocidad de World 1.
+-- OPEN_HOLD está en segundos ABSOLUTOS y por eso también va por mundo: dejarlo
+-- fijo invertiría la dificultad (ver el comentario largo en ObstaclesConfig).
+local CONFIG = ObstaclesConfig.get("Walls")
+
+local REFERENCE_LEVEL  = CONFIG.Level           -- nivel para el que se calibra el timing
+local OPEN_HOLD        = CONFIG.OpenHold or 2.5 -- segundos que la wall queda totalmente abierta
+local RESET_GAP        = CONFIG.ResetGap or 0   -- pausa antes de reiniciar el ciclo
 local PLAYER_RADIUS    = 2.5                    -- margen del cuerpo del jugador para la colisión
 local FALLBACK_SPACING = 160 / WALL_COUNT       -- studs entre walls si falta alguna posición
 

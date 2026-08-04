@@ -161,11 +161,14 @@ function WinsService:_onTouchPartTouched(winZone: Instance, touchedPart: BasePar
 end
 
 -- Acredita Wins (con multiplicador de rebirth) en la moneda del jugador.
-function WinsService:_creditWins(player: Player, winsQuantity: number): ()
+-- Devuelve lo REALMENTE acreditado, que no es el `winsQuantity` de entrada: quien
+-- quiera enseñar el premio por pantalla tiene que usar el valor devuelto o estaría
+-- mintiendo por el factor del rebirth (hasta x26) y el del weather.
+function WinsService:_creditWins(player: Player, winsQuantity: number): number
 	local dataService = self._dataService
 	if not dataService or not dataService:hasProfile(player) then
 		debugPrint(`No se pudo dar Wins a {player.Name}: profile no disponible`)
-		return
+		return 0
 	end
 
 	local rebirthCount = (dataService:get(player, { "Rebirth" }) or 0) :: number
@@ -198,6 +201,8 @@ function WinsService:_creditWins(player: Player, winsQuantity: number): ()
 	end
 
 	debugPrint(`Wins entregados: {player.Name}, +{earned} (x{multiplier}), total={newWins}`)
+
+	return earned
 end
 
 -- API pública para otros features que conceden Wins fuera de un botón (hoy: las
@@ -205,11 +210,13 @@ end
 -- multiplicador de rebirth, el WeatherWinsBoost, TotalWinsEarned y el funnel: si cada
 -- feature replicase esa fórmula, cualquier cambio de balance habría que tocarlo en
 -- varios sitios.
-function WinsService:awardWins(player: Player, amount: number): ()
+-- Devuelve lo acreditado de verdad (con rebirth y weather aplicados), para que quien
+-- lo llame pueda enseñar el número correcto en pantalla.
+function WinsService:awardWins(player: Player, amount: number): number
 	if typeof(amount) ~= "number" or amount <= 0 then
-		return
+		return 0
 	end
-	self:_creditWins(player, amount)
+	return self:_creditWins(player, amount)
 end
 
 -- Mismo teleport al spawn que tras reclamar un botón de Wins.

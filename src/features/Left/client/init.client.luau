@@ -190,7 +190,7 @@ local function populateRebirthMenu()
 		if nextData then
 			local ratio = math.clamp(playerLevel / nextData.LevelRequired, 0, 1)
 			TweenService:Create(rebirthFill, FILL_TWEEN, { Size = UDim2.new(ratio, 0, 1, 0) }):Play()
-			rebirthCoinsTitle.Text = playerLevel .. "/" .. nextData.LevelRequired
+			rebirthCoinsTitle.Text = "Level " .. playerLevel .. "/Level " .. nextData.LevelRequired
 		else
 			TweenService:Create(rebirthFill, FILL_TWEEN, { Size = UDim2.new(1, 0, 1, 0) }):Play()
 			rebirthCoinsTitle.Text = "MAX"
@@ -312,7 +312,9 @@ end)
 
 -- ── Menú Index ────────────────────────────────────────────────────────────────
 
-local selectedWorldKey = "World1"
+-- Tier de monturas seleccionado en el Index. NO es el place: eso lo resuelve
+-- WorldsConfig y no tiene nada que ver con esta pestaña.
+local selectedTierKey = "World1"
 
 local function clearIndexScrolling()
 	for _, child in indexScrolling:GetChildren() do
@@ -424,7 +426,7 @@ local function populateIndexMenu()
 
 		-- World tabs (Left panel)
 		clearIndexLeft()
-		for _, world in MountsConfig.Worlds do
+		for _, world in MountsConfig.MountTiers do
 			local tab      = recordTemplate:Clone()
 			local imgLabel = tab:FindFirstChild("ImageLabel") :: ImageLabel?
 			local interior = imgLabel and imgLabel:FindFirstChild("Interior") :: ImageLabel?
@@ -433,13 +435,13 @@ local function populateIndexMenu()
 			end
 
 			local selected   = tab:FindFirstChild("Selected") :: Frame
-			selected.Visible = (world.Key == selectedWorldKey)
+			selected.Visible = (world.Key == selectedTierKey)
 			tab.Visible      = true
 			tab.Parent       = indexLeftPanel
 
 			local worldKey = world.Key
 			tab.MouseButton1Click:Connect(function()
-				selectedWorldKey = worldKey
+				selectedTierKey = worldKey
 				for _, t in indexLeftPanel:GetChildren() do
 					if t:IsA("ImageButton") then
 						local s = t:FindFirstChild("Selected") :: Frame?
@@ -454,7 +456,7 @@ local function populateIndexMenu()
 			end)
 		end
 
-		populateWorldGrid(selectedWorldKey, ownedMounts, equippedName)
+		populateWorldGrid(selectedTierKey, ownedMounts, equippedName)
 	end)
 end
 
@@ -469,7 +471,7 @@ task.spawn(function()
 		if not MenuManager.isOpen(menuIndex) then return end
 		local equippedName = (DataService:get({ "EquippedMount" }) or "Chonk") :: string
 		local ownedMounts  = (DataService:get({ "Mounts" }) or {}) :: {[string]: boolean}
-		populateWorldGrid(selectedWorldKey, ownedMounts, equippedName)
+		populateWorldGrid(selectedTierKey, ownedMounts, equippedName)
 	end
 	DataService:getChangedSignal({ "EquippedMount" }):Connect(refreshIfOpen)
 	DataService:getChangedSignal({ "Mounts" }):Connect(refreshIfOpen)

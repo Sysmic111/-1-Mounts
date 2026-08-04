@@ -22,7 +22,11 @@ export type MountData = {
 	ProductId: number?, -- Developer Product (solo monturas Premium)
 }
 
-export type WorldData = {
+-- Pestaña del menú Index. OJO: aquí "World1" es un TIER DE MONTURAS, no un place.
+-- Los places (World 1 = 74139556114101, World 2 = 88347344061446) los resuelve
+-- WorldsConfig, que es el único sitio del repo que conoce PlaceIds. Los dos
+-- conceptos comparten nombre por accidente histórico y no están relacionados.
+export type MountTierData = {
 	Name: string,
 	Key: string,
 	Image: string,
@@ -30,9 +34,9 @@ export type WorldData = {
 
 local MountsConfig = {
 
-	Worlds = {
+	MountTiers = {
 		{ Name = "World 1", Key = "World1", Image = "rbxassetid://0" },
-	} :: { WorldData },
+	} :: { MountTierData },
 
 	-- La cadena de evolución completa cabe dentro del rango 1..130, que es el
 	-- recorrido del juego. Las mounts PERSISTEN tras el rebirth: la cadena es una
