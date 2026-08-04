@@ -56,6 +56,26 @@
 - **`MessagingService` es global al universe**: Weather y los comandos cross-server de Admin
   llegan también a los servers de World 2, sin filtro de place
 
+## Assets compartidos entre places (RojoShared)
+- **Rojo es de UNA SOLA DIRECCIÓN: filesystem → Studio.** Lo que edites a mano en Studio (mover
+  algo a `ServerStorage`, crear un modelo) NO vuelve a los archivos, así que el otro place no lo
+  ve nunca. No existe forma de sincronizar Studio → Rojo
+- El rodeo para modelos/assets es la carpeta `RojoShared/` del repo → `ReplicatedStorage.RojoShared`.
+  Guardas ahí el `.rbxm` (en Studio: clic derecho → Save to File) y Rojo lo sirve en **los dos
+  places** desde el mismo `default.project.json`
+- Hoy contiene `Mounts.rbxm` → `ReplicatedStorage.RojoShared.Mounts`, que es de donde
+  `MorphService.BuildMountRig` saca los rigs. Añadir una montura = meterla en ese `.rbxm`, no
+  tocar `ServerStorage` de un place
+- **TRAMPA: no puede haber a la vez `X.rbxm` y una carpeta `X/`** dentro de `RojoShared/`. Las dos
+  quieren ser la misma instancia `ReplicatedStorage.RojoShared.X`, Rojo no resuelve la colisión y
+  **`rojo serve` se cae con exit code 1** (pasó de verdad al crear `Mounts/` teniendo ya
+  `Mounts.rbxm`). Un solo `.rbxm` ya contiene toda la jerarquía dentro: no hace falta la carpeta
+- `rojo serve` **no relee `default.project.json` en caliente**, solo vigila los archivos. Si
+  cambias el árbol del proyecto (feature nueva, entrada nueva), hay que reiniciar el servidor y
+  reconectar el plugin, o en Studio no aparece nada
+- Sigue vivo en el `.rbxl` el `ReplicatedStorage.Mounts` viejo, que ya no lee nadie: conviene
+  borrarlo para no tener dos copias de 2 MB divergiendo
+
 ## Economía multi-mundo
 - Los `StepsIncresement` los siembra `EconomyService` desde el config, repartidos por posición
   (ver "Atributos de Workspace"). En el `.rbxl` de un place nuevo no hay que ponerlos a mano
@@ -88,6 +108,13 @@
 
 ## Sistema de mounts
 - MorphService.MorphPlayer(player, mountName) aplica el morph — pone `player.Character = mountModel` con atributo `IsMountCharacter = true`
+- Los rigs salen de `ReplicatedStorage.RojoShared.Mounts` (ver "Assets compartidos entre places")
+- **`BuildMountRig` coloca la montura con `PivotTo` sobre el modelo entero, NO con
+  `newHRP.CFrame = ...`.** Mover solo el HumanoidRootPart funcionaba de casualidad: los meshes van
+  por Bones/Motor6D y se recolocan solos al entrar al DataModel, pero el `HitBox` se une con un
+  **`WeldConstraint`**, que no guarda offset explícito — se quedaba en las coordenadas de la
+  plantilla y al parentear congelaba esa separación, dejando el collider de la montura a cientos
+  de studs del jugador. No revertirlo a mover una sola part
 - MountsConfig.luau está en Shared (no en server) — tanto cliente como servidor lo usan
 - `MountsConfig.World1` = mounts normales, `MountsConfig.Premium` = Secret Mounts del Index
 - Cada mount tiene `Image: string` (rbxassetid) — cambiar los placeholders `"rbxassetid://0"` cuando haya assets
