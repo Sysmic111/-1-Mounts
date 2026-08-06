@@ -24,12 +24,30 @@ end
 
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Presets de Wins (label -> monto)
+-- Presets de Wins (label -> monto). Por décadas hasta 1T: la economía de World 2
+-- se mueve en miles de millones (la cadena de steps son 79.9B y la última montura
+-- 40B), así que sin los tramos de arriba el botón no sirve para probar ese mundo.
+-- El servidor satura contra MAX_WINS_PER_GRANT.
 local WIN_PRESETS = {
-	{ label = "+1K",   amount = 1000 },
-	{ label = "+10K",  amount = 10000 },
-	{ label = "+100K", amount = 100000 },
-	{ label = "+1M",   amount = 1000000 },
+	{ label = "+1K",   amount = 1e3 },
+	{ label = "+10K",  amount = 1e4 },
+	{ label = "+100K", amount = 1e5 },
+	{ label = "+1M",   amount = 1e6 },
+	{ label = "+10M",  amount = 1e7 },
+	{ label = "+100M", amount = 1e8 },
+	{ label = "+1B",   amount = 1e9 },
+	{ label = "+10B",  amount = 1e10 },
+	{ label = "+100B", amount = 1e11 },
+	{ label = "+1T",   amount = 1e12 },
+}
+
+-- Presets de niveles. El servidor satura contra su propio tope (MAX_LEVEL).
+local LEVEL_PRESETS = {
+	{ label = "+1",   amount = 1 },
+	{ label = "+5",   amount = 5 },
+	{ label = "+10",  amount = 10 },
+	{ label = "+50",  amount = 50 },
+	{ label = "+100", amount = 100 },
 }
 
 -- Target seleccionado (por UserId). Arranca en uno mismo.
@@ -425,25 +443,58 @@ end
 local winsHeader = makeLabel(leftCol, "GIVE WINS")
 winsHeader.LayoutOrder = nextOrder()
 
-local winsRow = Instance.new("Frame")
-winsRow.BackgroundTransparency = 1
-winsRow.Size = UDim2.new(1, 0, 0, 30)
-winsRow.LayoutOrder = nextOrder()
-winsRow.Parent = leftCol
+-- Rejilla y no una fila: son 10 presets y en una sola línea quedan ilegibles.
+-- Alto automático, igual que la rejilla de mounts, para que al añadir o quitar un
+-- preset no haya que recalcular nada a mano.
+local winsGrid = Instance.new("Frame")
+winsGrid.BackgroundTransparency = 1
+winsGrid.Size = UDim2.new(1, 0, 0, 0)
+winsGrid.AutomaticSize = Enum.AutomaticSize.Y
+winsGrid.LayoutOrder = nextOrder()
+winsGrid.Parent = leftCol
+do
+	local g = Instance.new("UIGridLayout")
+	g.CellSize = UDim2.new(0.2, -5, 0, 28)
+	g.CellPadding = UDim2.new(0, 6, 0, 6)
+	g.SortOrder = Enum.SortOrder.LayoutOrder
+	g.Parent = winsGrid
+end
+
+for i, preset in WIN_PRESETS do
+	local btn = makeButton(winsGrid, preset.label, Color3.fromRGB(210, 170, 40))
+	btn.LayoutOrder = i
+	btn.MouseButton1Click:Connect(function()
+		Packets.AdminGiveWins:Fire(selectedUserId, preset.amount)
+	end)
+end
+
+-- ── Sección Give Levels ──────────────────────────────────────────────────────
+-- Sube el Level directamente, sin pasar por el Speed. El servidor reaplica el
+-- WalkSpeed; el SpeedCurrency que llevara encima no se toca.
+
+local levelsHeader = makeLabel(leftCol, "GIVE LEVELS")
+levelsHeader.LayoutOrder = nextOrder()
+
+local levelsRow = Instance.new("Frame")
+levelsRow.BackgroundTransparency = 1
+levelsRow.Size = UDim2.new(1, 0, 0, 30)
+levelsRow.LayoutOrder = nextOrder()
+levelsRow.Parent = leftCol
 do
 	local l = Instance.new("UIListLayout")
 	l.FillDirection = Enum.FillDirection.Horizontal
 	l.Padding = UDim.new(0, 6)
 	l.SortOrder = Enum.SortOrder.LayoutOrder
-	l.Parent = winsRow
+	l.Parent = levelsRow
 end
 
-for i, preset in WIN_PRESETS do
-	local btn = makeButton(winsRow, preset.label, Color3.fromRGB(210, 170, 40))
-	btn.Size = UDim2.new(0.25, -5, 1, 0)
+for i, preset in LEVEL_PRESETS do
+	local btn = makeButton(levelsRow, preset.label, Color3.fromRGB(90, 180, 110))
+	-- Son 5 botones (los de Wins son 4): 0.2 de ancho en vez de 0.25.
+	btn.Size = UDim2.new(0.2, -5, 1, 0)
 	btn.LayoutOrder = i
 	btn.MouseButton1Click:Connect(function()
-		Packets.AdminGiveWins:Fire(selectedUserId, preset.amount)
+		Packets.AdminGiveLevels:Fire(selectedUserId, preset.amount)
 	end)
 end
 

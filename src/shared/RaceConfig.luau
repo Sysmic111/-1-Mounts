@@ -49,28 +49,35 @@ local World1Stages = {
 --
 -- Niveles de diseño 133..175 (ver EconomyConfig.Worlds.World2.StageLevels).
 --
--- AVISO: la palanca de NpcSpeed está AGOTADA por encima del nivel 130. La curva
--- de WalkSpeed es sqrt a partir del 50, así que todo World 2 cabe en un 8%
--- (105.8 → 114.7) y las trece carreras se sienten iguales. Para diferenciarlas
--- la palanca es la LONGITUD DE LA PISTA en el .rbxl (los marcadores Player/Npc/
--- Goal del Model "Race"), no este número.
+-- Estos NpcSpeed son 0.9 × la curva de WalkSpeed de WORLD 2, que es distinta a la
+-- de World 1 a partir del nivel 131 (SpeedConfig.WalkSpeedCurves). Son constantes
+-- horneadas: a diferencia de los scripts de obstáculos de los stages —que llaman a
+-- getWalkSpeedForLevel en runtime y se recalibran solos al place— si se toca esa
+-- curva hay que rehacer esta columna a mano.
 --
--- Mount = "" en todas: las monturas de estos niveles están por venir. Mientras
--- tanto RaceService no registra estas pistas y las carreras quedan inertes.
+-- La palanca de NpcSpeed sigue siendo ESTRECHA aunque ya no esté agotada: el mundo
+-- entero cabe entre 100 y 117 (antes 96-103). Para diferenciar de verdad las trece
+-- carreras la palanca es la LONGITUD DE LA PISTA en el .rbxl (los marcadores
+-- Player/Npc/Goal del Model "Race"), no este número.
+--
+-- Mount = "" en todas: las monturas de World 2 ya existen en MountsConfig, pero
+-- sus rigs todavía no están en RojoShared/Mounts.rbxm. Mientras tanto RaceService
+-- no registra estas pistas y las carreras quedan inertes — que es justo lo que se
+-- quiere hasta que los modelos estén, en vez de reventar al construir el NPC.
 local World2Stages = {
-	[2]  = { NpcName = "Racer", NpcSpeed = 96,  Mount = "" }, -- nivel 133, ws 106.4
-	[3]  = { NpcName = "Racer", NpcSpeed = 97,  Mount = "" }, -- nivel 137, ws 107.3
-	[4]  = { NpcName = "Racer", NpcSpeed = 97,  Mount = "" }, -- nivel 140, ws 107.9
-	[5]  = { NpcName = "Racer", NpcSpeed = 98,  Mount = "" }, -- nivel 144, ws 108.8
-	[6]  = { NpcName = "Racer", NpcSpeed = 98,  Mount = "" }, -- nivel 147, ws 109.4
-	[7]  = { NpcName = "Racer", NpcSpeed = 99,  Mount = "" }, -- nivel 151, ws 110.2
-	[8]  = { NpcName = "Racer", NpcSpeed = 100, Mount = "" }, -- nivel 154, ws 110.8
-	[9]  = { NpcName = "Racer", NpcSpeed = 100, Mount = "" }, -- nivel 158, ws 111.6
-	[10] = { NpcName = "Racer", NpcSpeed = 101, Mount = "" }, -- nivel 161, ws 112.1
-	[11] = { NpcName = "Racer", NpcSpeed = 102, Mount = "" }, -- nivel 165, ws 112.9
-	[12] = { NpcName = "Racer", NpcSpeed = 102, Mount = "" }, -- nivel 168, ws 113.5
-	[13] = { NpcName = "Racer", NpcSpeed = 103, Mount = "" }, -- nivel 172, ws 114.2
-	[14] = { NpcName = "Racer", NpcSpeed = 103, Mount = "" }, -- nivel 175, ws 114.7
+	[2]  = { NpcName = "Racer", NpcSpeed = 100, Mount = "" }, -- nivel 133, ws 111.1
+	[3]  = { NpcName = "Racer", NpcSpeed = 103, Mount = "" }, -- nivel 137, ws 114.9
+	[4]  = { NpcName = "Racer", NpcSpeed = 105, Mount = "" }, -- nivel 140, ws 116.9
+	[5]  = { NpcName = "Racer", NpcSpeed = 107, Mount = "" }, -- nivel 144, ws 119.0
+	[6]  = { NpcName = "Racer", NpcSpeed = 108, Mount = "" }, -- nivel 147, ws 120.5
+	[7]  = { NpcName = "Racer", NpcSpeed = 110, Mount = "" }, -- nivel 151, ws 122.2
+	[8]  = { NpcName = "Racer", NpcSpeed = 111, Mount = "" }, -- nivel 154, ws 123.4
+	[9]  = { NpcName = "Racer", NpcSpeed = 112, Mount = "" }, -- nivel 158, ws 124.8
+	[10] = { NpcName = "Racer", NpcSpeed = 113, Mount = "" }, -- nivel 161, ws 125.8
+	[11] = { NpcName = "Racer", NpcSpeed = 114, Mount = "" }, -- nivel 165, ws 127.1
+	[12] = { NpcName = "Racer", NpcSpeed = 115, Mount = "" }, -- nivel 168, ws 128.0
+	[13] = { NpcName = "Racer", NpcSpeed = 116, Mount = "" }, -- nivel 172, ws 129.2
+	[14] = { NpcName = "Racer", NpcSpeed = 117, Mount = "" }, -- nivel 175, ws 130.0
 } :: { [number]: RaceData }
 
 -- Para un stage con geometría de carrera pero sin fila propia.

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Roblox_Studio__script_grep",
+      "mcp__Roblox_Studio__set_active_studio"
+    ]
+  }
+}

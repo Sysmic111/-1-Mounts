@@ -49,6 +49,9 @@ local FunnelService = {
 	_sent = {} :: { [Player]: { [string]: boolean } },
 	_checkouts = {} :: { [Player]: { [number]: CheckoutState } },
 	_clientRates = {} :: { [Player]: ClientRateState },
+	-- De sesión a propósito: el cliente re-entra al paso 3 del tutorial al reconectar
+	-- y vuelve a reportarlo. Lo que persiste es AnalyticsTutorialStep.
+	_tutorialMenuOpened = {} :: { [Player]: boolean },
 }
 
 local CLIENT_BURST_TOKENS = 12
@@ -232,6 +235,81 @@ function FunnelService:_advanceOnboarding(player: Player): ()
 	end
 end
 
+-- Funnel del tutorial guiado (src/features/Tutorial/client): mide en qué paso se
+-- abandona la secuencia que el jugador VE, no hitos sueltos de progresión (eso es
+-- Onboarding). Los pasos son los mismos y en el mismo orden.
+--
+-- Solo cohorte "Fresh", igual que _advanceOnboarding: un veterano cumple las siete
+-- condiciones el primer tick y meterlo aquí sería inventarse un tutorial completado
+-- que nunca se le mostró.
+local TUTORIAL_STEP_NAMES = {
+	"Tutorial Started",
+	"Level 5 Reached",
+	"First Win Collected",
+	"Evolve Menu Opened",
+	"First Evolve",
+	"Wins Collected",
+	"Step Upgrade Bought",
+}
+
+-- Pasos que puede reportar el cliente. Hoy solo el 4: es el único que no sale de los
+-- datos del perfil. Cualquier otro número que llegue por el packet se descarta.
+local TUTORIAL_CLIENT_STEPS: { [number]: boolean } = { [4] = true }
+
+-- Espejo de las constantes del cliente. El paso 2 lo gana el primer botón del
+-- Stage 2 (1 win) y el 6 el del Stage 3 (3 más).
+local TUTORIAL_MOUNT = "Moru"
+local TUTORIAL_STEP_INCREMENT = 2
+local TUTORIAL_WINS_FIRST = 1
+local TUTORIAL_WINS_TOTAL = 4
+
+function FunnelService:_advanceTutorial(player: Player): ()
+	local ds = self._dataService
+	if not ds or not ds:hasProfile(player) or self:_cohort(player) ~= "Fresh" then return end
+
+	local current = (ds:get(player, { "AnalyticsTutorialStep" }) or 0) :: number
+	if current >= #TUTORIAL_STEP_NAMES then return end
+
+	local level = (ds:get(player, { "Level" }) or 1) :: number
+	local totalWins = (ds:get(player, { "TotalWinsEarned" }) or 0) :: number
+	local ownedMounts = (ds:get(player, { "Mounts" }) or {}) :: { [string]: boolean }
+	local evolved = ownedMounts[TUTORIAL_MOUNT] == true
+	local stepBought = ds:get(player, { "StepUnlocked_" .. tostring(TUTORIAL_STEP_INCREMENT) }) == true
+	local menuOpened = (self._tutorialMenuOpened[player] == true) or evolved
+
+	-- Los backstops (`or evolved`, `or stepBought`) no son decoración: el bucle es
+	-- secuencial, así que un paso que se quede en false congela el funnel entero. El
+	-- rebirth resetea Level, y el paso 4 depende de un packet que puede perderse —
+	-- haber evolucionado demuestra las dos cosas de sobra.
+	local requirements = {
+		true,
+		level >= 5 or evolved or stepBought,
+		totalWins >= TUTORIAL_WINS_FIRST,
+		menuOpened,
+		evolved,
+		totalWins >= TUTORIAL_WINS_TOTAL or stepBought,
+		stepBought,
+	}
+
+	local session = stableSession(player, "Tutorial")
+	while current < #requirements and requirements[current + 1] do
+		local nextStep = current + 1
+		local customFields = if nextStep == 1
+			then fields("Fresh", "Tutorial", WorldsConfig.current().Key)
+			else nil
+		if not self:_log(player, AnalyticsConfig.Funnels.Tutorial, session, nextStep, TUTORIAL_STEP_NAMES[nextStep], customFields) then break end
+		current = nextStep
+		ds:set(player, { "AnalyticsTutorialStep" }, current)
+	end
+end
+
+function FunnelService:_handleTutorialStep(player: Player, step: number): ()
+	if type(step) ~= "number" or not TUTORIAL_CLIENT_STEPS[step] then return end
+	if not self:_consumeClientToken(player) then return end
+	self._tutorialMenuOpened[player] = true
+	self:_advanceTutorial(player)
+end
+
 function FunnelService:_syncRebirthCycle(player: Player, compact: boolean): ()
 	local ds = self._dataService
 	if not ds or not ds:hasProfile(player) then return end
@@ -310,6 +388,7 @@ function FunnelService:_setupPlayer(player: Player): ()
 	end
 
 	self:_advanceOnboarding(player)
+	self:_advanceTutorial(player)
 end
 
 function FunnelService:init(dataService: DataServiceServer): ()
@@ -322,6 +401,7 @@ function FunnelService:init(dataService: DataServiceServer): ()
 		self._sent[player] = nil
 		self._checkouts[player] = nil
 		self._clientRates[player] = nil
+		self._tutorialMenuOpened[player] = nil
 	end)
 	for _, player in Players:GetPlayers() do
 		task.spawn(function() self:_setupPlayer(player) end)
@@ -330,10 +410,15 @@ function FunnelService:init(dataService: DataServiceServer): ()
 	Packets.AnalyticsCheckoutAction.OnServerEvent:Connect(function(player: Player, action: string, productId: number, sessionId: string, offerId: string)
 		self:_handleCheckoutAction(player, action, productId, sessionId, offerId)
 	end)
+
+	Packets.TutorialFunnelStep.OnServerEvent:Connect(function(player: Player, step: number)
+		self:_handleTutorialStep(player, step)
+	end)
 end
 
 function FunnelService:onProgressChanged(player: Player): ()
 	self:_advanceOnboarding(player)
+	self:_advanceTutorial(player)
 	self:_syncRebirthCycle(player, false)
 end
 
@@ -373,6 +458,7 @@ function FunnelService:onMountUnlocked(player: Player, mountName: string): ()
 		if mount.Name == mountName then
 			self:_log(player, AnalyticsConfig.Funnels.Mounts, stableSession(player, "Mounts"), index, mountName .. " Owned", nil)
 			self:_advanceOnboarding(player)
+			self:_advanceTutorial(player)
 			return
 		end
 	end
@@ -397,6 +483,8 @@ function FunnelService:onStepUnlocked(player: Player, increment: number): ()
 	local index = table.find(stepIncrements, increment)
 	if not index then return end
 	self:_log(player, AnalyticsConfig.Funnels.Steps, stableSession(player, "Steps"), index, "Steps x" .. tostring(increment), nil)
+	-- El x2 es el último paso del tutorial: cierra el funnel en el mismo acto.
+	self:_advanceTutorial(player)
 end
 
 function FunnelService:onDailyClaimed(player: Player, day: number): ()

@@ -29,7 +29,16 @@ type DataServiceServer = {
 
 -- Tope defensivo: aunque solo un admin llega hasta acá, evitamos que un valor
 -- corrupto/gigante desde el cliente rompa la data (overflow, NaN, etc.).
-local MAX_WINS_PER_GRANT = 1_000_000_000
+-- 1T. Tiene que ir por encima del preset más alto del panel (+1T) o los botones
+-- grandes se saturarían en silencio. La escala la marca World 2: su cadena de
+-- steps son 79.9B y la última montura 40B, así que un tope de 1B —el que había,
+-- calibrado para World 1— dejaba el botón inservible para probar ese mundo.
+local MAX_WINS_PER_GRANT = 1_000_000_000_000
+-- Tope del Level que puede dejar un regalo de admin. Muy por encima del final del
+-- recorrido (World 2 acaba en el 175): sirve para probar, no para restringir. La
+-- curva de coste es exponencial (1.204^L), así que sin tope un valor corrupto deja
+-- al jugador en un nivel cuyo requisito no cabe en un double.
+local MAX_LEVEL          = 500
 local SLOW_SECONDS       = 10
 local SLOW_WALKSPEED     = 1
 local SLOW_REFRESH       = 0.2
@@ -205,6 +214,20 @@ function AdminService:init(dataService: DataServiceServer): ()
 		if not target then return end
 
 		self:_giveWins(target, amount)
+	end)
+
+	Packets.AdminGiveLevels.OnServerEvent:Connect(function(player: Player, targetUserId: number, amount: number)
+		if not AdminConfig.isAdmin(player.UserId) then return end
+		if type(targetUserId) ~= "number" or type(amount) ~= "number" then return end
+		-- Mismo saneo que Give Wins: entero, positivo y finito.
+		if amount ~= amount or amount == math.huge then return end -- NaN / inf
+		amount = math.floor(amount)
+		if amount <= 0 then return end
+
+		local target = Players:GetPlayerByUserId(targetUserId)
+		if not target then return end
+
+		self:_giveLevels(target, amount)
 	end)
 
 	Packets.AdminSlow.OnServerEvent:Connect(function(player: Player, targetUserId: number)
@@ -929,6 +952,35 @@ function AdminService:_giveWins(target: Player, amount: number): ()
 	-- Crédito crudo: sin multiplicador de rebirth (es un regalo admin, no un claim).
 	local current = (ds:get(target, { "WinCurrency" }) or 0) :: number
 	ds:set(target, { "WinCurrency" }, current + amount)
+end
+
+-- Sube el Level N niveles de golpe.
+--
+-- NO toca SpeedCurrency: el sobrante que llevara encima sigue siendo suyo y, si da
+-- para otro nivel, lo resuelve `SpeedService:_addSpeed` en el siguiente paquete de
+-- movimiento (igual que los regalos de Speed crudo del Daily o el StarterPack).
+--
+-- Aplica el WalkSpeed a mano porque el level-up normal lo hace SpeedService y aquí
+-- el nivel cambia por fuera de él. Se usa `SpeedConfig.getWalkSpeedForLevel`, que
+-- resuelve la curva del mundo de este place. Los leaderstats se ponen al día solos
+-- (los relee del perfil cada 2 s).
+--
+-- A propósito no llama a `FunnelService:onProgressChanged`: esto es data de prueba
+-- y no debería aparecer en los embudos de progresión.
+function AdminService:_giveLevels(target: Player, amount: number): ()
+	local ds = self._dataService
+	if not ds or not ds:hasProfile(target) then return end
+
+	local current  = (ds:get(target, { "Level" }) or 1) :: number
+	local newLevel = math.clamp(current + amount, 1, MAX_LEVEL)
+	if newLevel == current then return end
+
+	ds:set(target, { "Level" }, newLevel)
+
+	local humanoid = getHumanoid(target)
+	if humanoid then
+		humanoid.WalkSpeed = SpeedConfig.getWalkSpeedForLevel(newLevel)
+	end
 end
 
 function AdminService:_slow(target: Player): ()

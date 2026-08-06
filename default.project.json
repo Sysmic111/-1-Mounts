@@ -26,6 +26,9 @@
       "Agility": {
         "$path": "src/features/Agility/server"
       },
+      "Analytics": {
+        "$path": "src/features/Analytics/server"
+      },
       "Badges": {
         "$path": "src/features/Badges/server"
       },
@@ -182,11 +185,17 @@
         "Trails": {
           "$path": "src/features/Trails/client"
         },
+        "Tutorial": {
+          "$path": "src/features/Tutorial/client"
+        },
         "Weather": {
           "$path": "src/features/Weather/client"
         },
         "Wins": {
           "$path": "src/features/Wins/client"
+        },
+        "Worlds": {
+          "$path": "src/features/Worlds/client"
         }
       }
     }

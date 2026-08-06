@@ -49,6 +49,10 @@ return {
 	WallHit           = Packet("WallHit"),
 	AnalyticsCheckoutAction = Packet("AnalyticsCheckoutAction", Packet.String, Packet.NumberU32, Packet.String, Packet.String),
 	AnalyticsCheckoutSession = Packet("AnalyticsCheckoutSession", Packet.NumberU32, Packet.String, Packet.String),
+	-- Único paso del funnel del tutorial que el servidor no puede derivar de los
+	-- datos: "abrió el menú Evolve" es estado de UI. FunnelService solo acepta los
+	-- pasos de su whitelist y pasa por el mismo rate limit que AnalyticsCheckoutAction.
+	TutorialFunnelStep = Packet("TutorialFunnelStep", Packet.NumberU8),
 	-- Group bonus: cliente pide verificar (sin datos); servidor responde con un status
 	-- ("Granted" | "NotInGroup" | "NeedLikeRejoin" | "AlreadyClaimed").
 	VerifyGroupBonus  = Packet("VerifyGroupBonus"),
@@ -72,6 +76,10 @@ return {
 	-- targetUserId va como F64 (los UserId de Roblox superan el rango U32).
 	AdminGiveMount    = Packet("AdminGiveMount", Packet.NumberF64, Packet.String),
 	AdminGiveWins     = Packet("AdminGiveWins",  Packet.NumberF64, Packet.NumberF64),
+	-- Sube el Level del target N niveles de golpe (presets +1/+5/+10/+50/+100). El
+	-- servidor satura contra un tope, así que un cliente modificado no puede mandar
+	-- a nadie a un nivel donde el coste del siguiente se desborde.
+	AdminGiveLevels   = Packet("AdminGiveLevels", Packet.NumberF64, Packet.NumberU16),
 	AdminSlow         = Packet("AdminSlow",       Packet.NumberF64),
 	-- Ban con el sistema propio de Roblox (Players:BanAsync). duration en segundos:
 	-- 86400 (1 día), 604800 (1 semana) o -1 (permanente). El servidor valida que sea
@@ -84,6 +92,14 @@ return {
 	-- MessagingService) | "server" (este server) | "player" (targetUserId). El
 	-- targetUserId va 0 salvo en "player". El servidor valida admin + longitud.
 	AdminBroadcast    = Packet("AdminBroadcast", Packet.String, Packet.String, Packet.NumberF64),
+	-- Menú Teleport: el cliente manda el Key del mundo destino (no un PlaceId — los
+	-- PlaceIds solo los conoce WorldsConfig, en el servidor). El servidor revalida
+	-- desbloqueo y cadena de steps, así que dispararlo a mano no salta ninguna
+	-- puerta. Solo hay respuesta para el FALLO: si sale bien, el jugador se va del
+	-- server y no hay a quién contestarle.
+	RequestWorldTeleport = Packet("RequestWorldTeleport", Packet.String),
+	WorldTeleportFailed  = Packet("WorldTeleportFailed",  Packet.String),
+
 	-- Servidor → cliente: mostrar el banner superior. Lleva el nombre del emisor
 	-- (para pintarlo dorado), el mensaje y si el emisor está verificado (para anteponer
 	-- el badge de Roblox). Lo recibe el feature Broadcast (que corren TODOS los

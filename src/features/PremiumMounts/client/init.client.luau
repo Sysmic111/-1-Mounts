@@ -90,17 +90,35 @@ local function setupBuyButton(buyPart: BasePart, mount: { Name: string, ProductI
 	end)
 end
 
-for i, mount in MountsConfig.Premium do
+-- El número del pedestal (Detail<n> / Buy<n>) es la posición entre las monturas
+-- VENDIBLES, NO el índice dentro de MountsConfig.Premium.
+--
+-- Esa lista mezcla las de pago con las del Daily Login y la del obby de Admin
+-- Abuse, así que los dos números solo coinciden mientras las de pago estén las
+-- primeras. Al mover el ProductId de Phantom Chopper (índice 2) a Frostak
+-- (índice 7), el script se puso a buscar Buy7/Detail7 —que no existen en el
+-- Workspace— y el pedestal dejó de lanzar el modal sin dar ningún error.
+--
+-- Con un contador propio, el orden de los pedestales es el orden de aparición de
+-- las monturas con ProductId, y da igual dónde caigan dentro del array.
+local slot = 0
+for _, mount in MountsConfig.Premium do
 	local productId = mount.ProductId
 	if not productId then continue end
 
-	local detail = folder:WaitForChild("Detail" .. i, 10)
+	slot += 1
+
+	local detail = folder:WaitForChild("Detail" .. slot, 10)
 	if detail then
 		task.spawn(applyRegionalPrice, detail, productId)
+	else
+		warn(`[PremiumMounts] Falta Detail{slot} en Workspace.PremiumMounts para "{mount.Name}"`)
 	end
 
-	local buyPart = folder:WaitForChild("Buy" .. i, 10) :: BasePart?
+	local buyPart = folder:WaitForChild("Buy" .. slot, 10) :: BasePart?
 	if buyPart then
 		setupBuyButton(buyPart, mount)
+	else
+		warn(`[PremiumMounts] Falta Buy{slot} en Workspace.PremiumMounts — "{mount.Name}" no se puede comprar desde el mundo`)
 	end
 end

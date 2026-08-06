@@ -21,6 +21,11 @@ local AnalyticsConfig = {
 		-- El funnel de stages ya NO está aquí: es uno por place y vive en
 		-- WorldsConfig.<world>.StagesFunnel. World 1 conserva la cadena exacta
 		-- "World1StagesV1" para no partir su histórico.
+		-- Los 7 pasos que el jugador VE en src/features/Tutorial/client, uno a uno.
+		-- Es distinto de Onboarding: aquel mide hitos de progresión (nivel 2, primer
+		-- win) para cualquier jugador nuevo; este mide si el tutorial guiado se
+		-- termina y en qué paso se abandona.
+		Tutorial = "TutorialV1",
 		Mounts = "MountEvolutionV1",
 		RebirthProgression = "RebirthProgressionV1",
 		RebirthCycle = "RebirthCycleV1",

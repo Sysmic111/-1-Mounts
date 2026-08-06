@@ -86,6 +86,9 @@ DataService:init({
 		AnalyticsCohort           = "",
 		AnalyticsSchemaVersion    = 0,
 		AnalyticsOnboardingStep   = 0,
+		-- Contador monótono del funnel del tutorial guiado (FunnelService:_advanceTutorial).
+		-- Persistido para que el funnel no se repita al reconectar a mitad.
+		AnalyticsTutorialStep     = 0,
 		AnalyticsBackfillVersion  = 0,
 		AnalyticsRebirthCycle     = 0,
 		AnalyticsRebirthCycleStep = 0,
@@ -95,6 +98,13 @@ DataService:init({
 		-- "HighestStageReached_<Key>" (ver FunnelService.highestStageKey).
 		HighestStageReached        = 1,
 		HighestStageReached_World2 = 1,
+		-- Desbloqueo de mundos para el menú Teleport (WorldsConfig.unlockKey). Una
+		-- clave por mundo que declare RequiresWorld; el mundo de entrada no lleva.
+		-- Va en el template y no on-demand como los StepUnlocked_<N> para que el
+		-- cliente pueda leerla y pintar la tarjeta bloqueada sin preguntar nada.
+		-- Se gana pisando Workspace.Teleport.Teleport con la cadena de steps del
+		-- mundo actual completa (WorldsService:_handleTeleportTouch).
+		WorldUnlocked_World2 = false,
 		-- Bonus de jugador nuevo (15 min seguidos = montura Premium gratis).
 		-- Cuenta las sesiones en las que YA se ofreció: al alcanzar
 		-- NewPlayerBonusConfig.MaxSessions la oferta caduca para siempre. El reloj

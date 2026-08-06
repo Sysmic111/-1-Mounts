@@ -19,10 +19,22 @@
 local Players           = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local RunService        = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ObstaclesConfig = require(ReplicatedStorage.Shared.ObstaclesConfig)
 
 local TAG          = "Ring"
-local ENEMY_SPEED  = 40 -- studs/s (palanca de dificultad; antes ~88, demasiado rápido)
 local CATCH_RADIUS = 4  -- studs para atrapar
+
+-- Velocidad POR MUNDO: los dos places tienen su propio ring y su propio enemy, y el
+-- de World 2 persigue a jugadores que corren a 121.8 studs/s en vez de ~98, así que
+-- el mismo número no da la misma presión. World 1 conserva su 40 exacto.
+--
+-- Se resuelve una vez al cargar, como hacen los LocalScripts de los otros
+-- obstáculos (`local CONFIG = ObstaclesConfig.get("Tronco")`): el mundo lo fija el
+-- PlaceId y no cambia en toda la vida del server. Esto NO es el caso de
+-- EconomyConfig.current(), que sí hay que llamar dentro de cada función.
+local ENEMY_SPEED = ObstaclesConfig.get(TAG).Speed or 40
 
 type RingEnemy = {
 	part:      BasePart,

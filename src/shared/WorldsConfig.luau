@@ -104,4 +104,27 @@ function WorldsConfig.currentKey(): string
 	return resolved.Key
 end
 
+-- Clave de perfil que marca un mundo como desbloqueado en el menú Teleport.
+-- Plana y con el Key dentro, igual que `StepUnlocked_<N>` y
+-- `HighestStageReached_<Key>`. Va en el template de datos (no on-demand como los
+-- steps) para que el cliente pueda LEERLA y pintar la tarjeta bloqueada sin
+-- pedirle nada al servidor.
+--
+-- OJO: son DOS puertas distintas y no se sustituyen.
+--   Este flag  -> si el jugador puede PEDIR el viaje desde el menú.
+--   RequiresWorld (cadena de steps, WorldsService:_enforce) -> si puede ESTAR en
+--   el mundo, y se aplica al llegar, venga de donde venga (deep-link incluido).
+-- Un flag a true con la cadena incompleta solo consigue un viaje de ida y vuelta,
+-- así que el handler del teleport comprueba las dos.
+function WorldsConfig.unlockKey(worldKey: string): string
+	return "WorldUnlocked_" .. worldKey
+end
+
+-- El mundo de entrada no se desbloquea: se empieza ahí. Solo los que declaran
+-- RequiresWorld tienen flag, así que añadir World 3 no obliga a tocar esto.
+function WorldsConfig.needsUnlock(worldKey: string): boolean
+	local world = WorldsConfig.Worlds[worldKey]
+	return world ~= nil and world.RequiresWorld ~= nil
+end
+
 return WorldsConfig

@@ -16,6 +16,22 @@ end
 
 local HAT_BASE_SIZE = 9 -- Y del HRP de la montura de referencia (mountScale = 1)
 
+-- Distancia del HumanoidRootPart al suelo en un avatar R15 estándar. Solo se usa
+-- si el rider no trae HRP (no debería pasar); lo normal es medirlo del rider real,
+-- que es quien define dónde está el suelo en ese momento.
+local DEFAULT_RIDER_DROP = 3
+
+-- Cuánto baja la geometría de un modelo por debajo del centro de su root: del
+-- centro del root al punto más bajo de su caja envolvente.
+--
+-- Es lo que hace falta para apoyar un rig en el suelo, y no el `Size` de ninguna
+-- part suelta: las monturas son meshes unidos por Motor6D, así que el único dato
+-- fiable de "cuánto ocupa" es la caja del modelo entero.
+local function dropBelowRoot(model: Model, root: BasePart): number
+	local boxCFrame, boxSize = model:GetBoundingBox()
+	return root.Position.Y - (boxCFrame.Position.Y - boxSize.Y / 2)
+end
+
 -- Animación en loop que corre el rider (la copia del personaje sentada sobre la
 -- montura) mientras la montura está equipada.
 local RIDER_ANIMATION_ID = "rbxassetid://76086496385671"
@@ -241,6 +257,36 @@ function MorphService.BuildMountRig(mountName: string, rider: Model, cframe: CFr
 	-- pero arrastrando rígidamente todo lo demás, esté unido por lo que esté unido.
 	newChar.PrimaryPart = newHRP
 	newChar:PivotTo(cframe)
+
+	-- Apoyar el rig en el suelo según su TAMAÑO REAL.
+	--
+	-- `cframe` es el CFrame del HumanoidRootPart del jugador, que está a ~3 studs del
+	-- suelo. Dejar ahí el HRP de la montura vale mientras el rig baje lo mismo desde
+	-- su propio root; en cuanto la montura es más grande, la diferencia se la come el
+	-- suelo y se ve medio bicho enterrado.
+	--
+	-- Se mide AHORA, con dos condiciones que importan: antes de meter al rider dentro
+	-- (que ampliaría la caja envolvente con el avatar) y antes de parentear a
+	-- workspace (para que nadie llegue a ver el frame mal colocado).
+	local mountDrop = dropBelowRoot(newChar, newHRP)
+
+	-- El suelo lo define el rider: la distancia de SU root a SUS pies. Se saca de él
+	-- y no de una constante para que valga igual con avatares escalados y con los
+	-- rigs de los NPC de las carreras, que no miden lo mismo que un jugador.
+	local riderRoot = rider:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local riderDrop = if riderRoot then dropBelowRoot(rider, riderRoot) else DEFAULT_RIDER_DROP
+	local groundY   = cframe.Position.Y - riderDrop
+
+	-- El root sube (o baja) hasta que el punto más bajo del rig toque ese suelo.
+	newChar:PivotTo(cframe + Vector3.new(0, (groundY + mountDrop) - cframe.Position.Y, 0))
+
+	-- Y que la física lo MANTENGA ahí. Sin esto el Humanoid vuelve a colocar el root
+	-- a la HipHeight que trajera la plantilla en cuanto toca el suelo, y la montura
+	-- se re-hunde sola un instante después de aparecer bien.
+	local mountHumanoid = newChar:FindFirstChildOfClass("Humanoid")
+	if mountHumanoid then
+		mountHumanoid.HipHeight = math.max(0, mountDrop - newHRP.Size.Y / 2)
+	end
 
 	for _, part in newChar:GetDescendants() do
 		if part:IsA("BasePart") then

@@ -104,7 +104,35 @@
   `Level` a 1, así que un gate por nivel expulsaría al jugador legítimo. Los steps son compra
   única y sobreviven al rebirth
 - En Studio **no teleporta** (no funciona entre places): avisa por consola y deja pasar
-- World 1 no tiene `RequiresWorld` → ni se conecta la señal
+- World 1 no tiene `RequiresWorld` → ni se conecta la señal de entrada. **Pero el handler del
+  menú Teleport se conecta ANTES de ese return**: World 1 es justo el mundo desde el que más se
+  viaja, y dejarlo dentro del `if` lo dejaría muerto donde más falta hace
+
+## Menú Teleport (Worlds/client)
+- **Son DOS puertas y no se sustituyen.** `WorldUnlocked_<Key>` (`WorldsConfig.unlockKey`) decide
+  si puede PEDIR el viaje desde el menú; `RequiresWorld` + la cadena de steps decide si puede
+  ESTAR en el mundo, y se aplica AL LLEGAR, venga de donde venga (deep-link incluido)
+- Por eso `_denyReason` comprueba **las dos**: un flag a true con la cadena incompleta solo
+  conseguiría un viaje de ida y vuelta terminado en `Kick`
+- El flag va en el **template** de datos, no on-demand como los `StepUnlocked_<N>`: el cliente
+  necesita leerlo para pintar la tarjeta bloqueada sin preguntarle nada al servidor
+- **Se gana pisando `Workspace.Teleport.Teleport`** con la cadena de steps de ESTE mundo completa
+  (`WorldsService:_handleTeleportTouch`). Es la única forma. Desbloquea y teleporta en el mismo
+  acto, reusando el camino del menú (cooldown, aviso de Studio, reintento)
+- La condición es la cadena de **este** mundo, que es exactamente lo que `_enforce` va a exigir al
+  llegar al otro lado: quien pasa por la parte nunca puede rebotar
+- El destino **no está escrito a pelo**: `nextWorldKey()` busca el mundo cuyo `RequiresWorld` es el
+  actual. La misma parte copiada al `.rbxl` de World 2 llevaría a World 3 el día que exista
+- El `Touched` se conecta UNA vez al arrancar y filtra dentro (debounce de 2 s por jugador), igual
+  que el HitBox del reward de Admin Abuse: dispara decenas de veces mientras estás encima
+- Las tarjetas ya existen en el `.rbxl` (`Menus.Teleport.ScrollingFrame`) y se llaman EXACTAMENTE
+  como el Key del mundo. Ese nombre es todo el emparejamiento: World 3 = duplicar la tarjeta en
+  Studio y llamarla "World3", sin tocar el script. Una tarjeta que no case avisa por consola
+- El cliente manda el **Key**, nunca un PlaceId: los PlaceIds solo los conoce `WorldsConfig`
+- Solo hay packet de FALLO (`WorldTeleportFailed`). Si sale bien el jugador se va del server y no
+  hay a quién contestarle
+- El botón `Left.Main.Line2.Teleports` lo posee este feature. **No volver a conectarlo también en
+  `Left/client`** o el menú se abriría y se cerraría en el mismo clic
 
 ## Sistema de mounts
 - MorphService.MorphPlayer(player, mountName) aplica el morph — pone `player.Character = mountModel` con atributo `IsMountCharacter = true`
@@ -242,6 +270,23 @@
   ingreso y encarecerlas frena todo el juego (medido: 15-21h y sin completar la cadena)
 - Números grandes (~3.2e12 en el nivel 130) son normales: la UI ya formatea con K/M/B
 
+### El WalkSpeed es POR MUNDO; el coste del nivel es GLOBAL
+- Son dos curvas distintas y no hay que confundirlas: `RequiredSpeedGrowth` (lo que CUESTA un
+  nivel) es única para todo el juego — el perfil es compartido y `Level` es uno solo.
+  `SpeedConfig.WalkSpeedCurves` (lo rápido que CORRES con ese nivel) tiene una entrada por mundo
+  y se resuelve por PLACE vía `WorldsConfig.currentKey()`, igual que `EconomyConfig.current()`
+- World 2 añade un **tramo de cola**: sqrt más empinado a partir del nivel 131, re-anclado al
+  valor que la curva ya tenía ahí (106.0 exacto), así que la velocidad es CONTINUA en la
+  frontera. Lleva de 106 a 130 en el nivel 175, donde la curva de World 1 solo daba 115.6
+- La pendiente de la cola **no se escribe a mano**: se declara `TailTargetLevel` /
+  `TailTargetWalkSpeed` y se deriva al cargar el módulo. Alargar el mundo = cambiar el objetivo
+- **Por debajo del 131 las dos curvas coinciden a propósito.** El rebirth resetea `Level` a 1 y
+  el gate del mundo es por STEPS, así que hay jugadores de nivel bajo dentro de World 2: si las
+  curvas divergieran abajo, un nivel 5 correría distinto según el place
+- Lo que se calibra **en runtime** contra `getWalkSpeedForLevel` (los LocalScripts de obstáculos
+  de los stages) se reajusta solo al cambiar la curva. Lo que está **horneado** en un config
+  (`RaceConfig.NpcSpeed`, los holds en segundos de `ObstaclesConfig`) NO — hay que rehacerlo a mano
+
 ### Cosas que no son obvias y rompen el balance si se olvidan
 - El `WinsMultiplier` del rebirth se aplica **dos veces**: a los Wins en `WinsService:_creditWins`
   y al Speed dentro del `TotalMultiplier`. Por eso el techo es x26 y no x248
@@ -289,6 +334,55 @@
 ## Menú Index
 - Las imágenes de mounts son placeholders en MountsConfig — asignarles IDs reales
 - Mounts no desbloqueadas: imagen negra (`ImageColor3 = black`), nombre `"??????"`
+
+## Tutorial (7 pasos)
+- `src/features/Tutorial/client` es **solo cliente y sin estado propio**: no hay clave de
+  datos, ni packet, ni servicio. El paso se DERIVA de `Level`, `TotalWinsEarned`,
+  `Mounts.Moru` y `StepUnlocked_2`. Un veterano ya los cumple todos → no ve nada, y el
+  progreso sobrevive al rejoin sin persistir un baseline
+- Los contadores son **absolutos** (`TotalWinsEarned >= 4`), no "3 más desde que empezó el
+  paso": un baseline por paso habría que guardarlo en el perfil
+- **`MountsConfig.World1[2]` (Moru) tiene `Wins = 1` POR EL TUTORIAL**, no por balance: el
+  paso 2 recoge exactamente 1 win en el Stage 2 y el paso 4 lo consume. Luego el paso 5
+  recoge los 3 wins del Stage 3 y el paso 6 los gasta en el step x2 (`Price = 3`). Subirlo
+  rompe la cadena entera del tutorial
+- El **rebirth no lo revive**: resetea `Level` a 1, pero para entonces `StepUnlocked_2` ya
+  es true y ese es el corte
+- La compra del step se detecta con `Packets.StepActivated`, **no** con
+  `getChangedSignal({"StepUnlocked_2"})`: esa clave es plana y se crea on-demand, no está
+  en el template
+- El paso 3 ("abre el menú Evolve") es el único que no sale de los datos — es estado de UI
+  (`MenuManager.isOpen`, señal `menuEvolve.Visible`). Cerrar el menú retrocede al paso 3
+- **La textura de un `Beam` no se puede rotar**: se orienta sola a lo largo del haz y lo
+  único posible es invertir el sentido intercambiando `Attachment0`/`Attachment1`. La
+  flecha 2D de los pasos 3-4 sí tiene `Rotation` (`ARROW_ROTATION`)
+- **`rbxassetid://133172207697852` tiene las flechas por el eje Y de la imagen** (apuntan
+  hacia abajo, medido en Studio) y un Beam mapea el eje X a lo largo del haz: **salen
+  perpendiculares**. El único arreglo es re-subir el asset girado 90°; al hacerlo,
+  `ARROW_ROTATION` pasa de 0 a 90 para que la flecha 2D siga apuntando hacia abajo
+- Los objetivos del mundo se re-resuelven en bucle cada 0.5 s en vez de una sola vez:
+  con StreamingEnabled salen y entran, y `MorphService` sustituye el Character entero
+  (con él, el attachment de origen del beam)
+
+### Funnel del tutorial (`AnalyticsConfig.Funnels.Tutorial`)
+- `FunnelService:_advanceTutorial` — contador monótono en `AnalyticsTutorialStep`, mismo
+  patrón que `_advanceOnboarding`. **Son dos funnels distintos**: Onboarding mide hitos
+  de progresión de cualquier jugador nuevo; este mide en qué paso se abandona el tutorial
+  guiado, y sus 7 pasos son los 7 que el jugador ve
+- **Solo cohorte "Fresh"**, igual que Onboarding: un veterano cumple las siete
+  condiciones en el primer tick y se registraría un tutorial completado que nunca se le
+  mostró
+- El paso 4 ("Evolve Menu Opened") es el ÚNICO que el servidor no puede derivar del
+  perfil — abrir un menú es estado de UI. Llega por `Packets.TutorialFunnelStep`
+  (`NumberU8`), validado contra `TUTORIAL_CLIENT_STEPS` y con el mismo rate limit por
+  tokens que `AnalyticsCheckoutAction`. El flag es de SESIÓN; lo que persiste es
+  `AnalyticsTutorialStep`
+- **Los backstops del array `requirements` (`or evolved`, `or stepBought`) no son
+  decoración**: el bucle es secuencial, así que un paso que se quede en false congela el
+  funnel entero. El rebirth resetea `Level` y el paso 4 depende de un packet que se puede
+  perder; haber evolucionado demuestra los dos
+- Se avanza desde `_setupPlayer`, `onProgressChanged`, `onMountUnlocked` y
+  `onStepUnlocked` — ningún feature necesita llamarlo
 
 ## Animaciones de menú
 - `src/shared/MenuAnimations.luau`: `open(frame)`, `close(frame, cb?)`, `blurIn()`, `blurOut()`
@@ -347,11 +441,36 @@
   `Name == "Steps"` dentro de `Workspace.StepsButtons`. Un botón tageado pero fuera de esa carpeta
   se ve y se puede pisar, pero el servidor lo rechaza
 - `"Lava"` → kill brick (tag hardcodeado en `LavaService`)
+- `"Ring"` → área con un Model `Enemy` dentro que persigue al jugador más cercano (`RingEnemyService`,
+  servidor). Su velocidad es **por mundo** (`ObstaclesConfig.Ring.Speed`): World 1 = 40 fijos;
+  World 2 **sin `Speed`**, o sea derivada del `Level` como Tronco y Laser (155 → 123.7)
+- **Son dos diseños distintos, no dos números**: en World 1 el enemy va al 0.41 de la velocidad del
+  jugador y es un estorbo de posicionamiento; en World 2 va al 1.00 de la del nivel 155 y es un
+  **gate de nivel** — por debajo del 155 te alcanza, a partir de ahí le sacas ventaja. Mismo
+  criterio que el Totem. Si se toca la curva de WalkSpeed de World 2, esta velocidad se mueve sola
 - `"Ice"` → superficie resbaladiza (tag hardcodeado en `IceService`). Vale en una BasePart o en
   un Model (entonces resbalan todas sus partes), igual que Lava. NO usa Touched ni ningún bucle:
   baja el rozamiento con `CustomPhysicalProperties`, y las propiedades replican solas al cliente
   — por eso no hay nada en el cliente. Conserva densidad y elasticidad de la parte: solo toca
   el rozamiento. Al quitar el tag restaura lo que hubiera antes (incluido "ninguno")
+- `"IceCube"` / `"IceCube2"` → **emisores**, no cubos: una BasePart que cada `Interval` s suelta
+  un clon que recorre `Distance` studs y se destruye. Las dos comparten script
+  (`Stages/client/IceCube.client.luau`) y se distinguen en la tabla `VARIANTS`:
+  IceCube va en **−Z del mundo** a la velocidad de un jugador del `Level` (World 2 = 150 →
+  121.8 studs/s); IceCube2 sube en **+Y del mundo** a `Speed = 10` fijos
+- Las direcciones son ejes del **MUNDO**, no del emisor: girar la part en Studio cambia cómo se
+  ve el cubo, nunca hacia dónde va
+- `Speed` en `ObstaclesConfig` **manda sobre `Level`**: es para obstáculos cuyo ritmo NO debe
+  seguir al jugador. Ahí el `Level` se queda solo como documentación de dónde encaja
+- Los clones se taggean `"Lava"`, **pero ese tag no es lo que mata**: `LavaService` es de servidor
+  y conecta `Touched` sobre instancias del servidor, así que un clon de cliente no existe para él.
+  La muerte va por el patrón de Walls/Laser/Totem/Axes — detección por POSICIÓN en el cliente +
+  `Packets.WallHit`, que es quien tiene la autoridad. El tag se mantiene porque describe lo que la
+  part es y lo encontraría cualquier barrido de "Lava" en el cliente
+- `PLAYER_RADIUS` es 2.5 en TODOS los obstáculos de cliente. Si uno se desvía, el mismo roce mata
+  en un sitio y no en otro
+- **`Clone()` copia los tags**: el clon del IceCube lleva `RemoveTag` obligatorio o cada cubo se
+  registra como emisor nuevo y el crecimiento exponencial tumba el cliente en segundos
 - Sobre el hielo, **la palanca real es `ICE_FRICTION_WEIGHT`, no `ICE_FRICTION`**: Roblox mezcla
   el rozamiento de las dos superficies ponderado por sus pesos, así que con peso 1 el 0.3 del
   personaje domina la media y no se nota nada. El peso alto (100) es lo que hace que mande el hielo

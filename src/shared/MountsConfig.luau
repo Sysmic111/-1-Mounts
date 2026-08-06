@@ -48,7 +48,10 @@ local MountsConfig = {
 	-- SpeedConfig.RequiredSpeedGrowth.
 	World1 = {
 		{ Name = "Chonk",     Multiplier = 1.00,  Image = "rbxassetid://100326118934119", EvolveRequirements = nil                          },
-		{ Name = "Moru",      Multiplier = 1.25,  Image = "rbxassetid://97674690910640",  EvolveRequirements = { Level = 5,   Wins = 5      } },
+		-- Wins = 1 (no 5) porque este evolve es el paso 4 del tutorial: el paso 2
+		-- recoge exactamente 1 win en el Stage 2 y este lo consume. Ver
+		-- src/features/Tutorial/client.
+		{ Name = "Moru",      Multiplier = 1.25,  Image = "rbxassetid://97674690910640",  EvolveRequirements = { Level = 5,   Wins = 1      } },
 		{ Name = "Lirael",    Multiplier = 1.50,  Image = "rbxassetid://95707865724771",  EvolveRequirements = { Level = 11,  Wins = 15     } },
 		{ Name = "Zahmir",    Multiplier = 2.00,  Image = "rbxassetid://132074107395602", EvolveRequirements = { Level = 17,  Wins = 40     } },
 		{ Name = "HippoHop",  Multiplier = 2.50,  Image = "rbxassetid://85336803052578",  EvolveRequirements = { Level = 23,  Wins = 90     } },
@@ -67,6 +70,31 @@ local MountsConfig = {
 		{ Name = "Skornclaw", Multiplier = 62.00, Image = "rbxassetid://98717951577991",  EvolveRequirements = { Level = 114, Wins = 160000 } },
 		{ Name = "Kharvox",   Multiplier = 75.00, Image = "rbxassetid://107557322180491", EvolveRequirements = { Level = 120, Wins = 300000 } },
 		{ Name = "Nyxion",    Multiplier = 90.00, Image = "rbxassetid://96015267241327",  EvolveRequirements = { Level = 126, Wins = 500000 } },
+
+		-- ── Tramo de World 2 (el place, niveles 131..175) ─────────────────────────
+		--
+		-- Van en ESTE array y no en una tabla `World2` propia a propósito: la cadena
+		-- de evolves es este array y nada más (MountsService:_handleEvolve y el
+		-- espejo del cliente avanzan por índice sobre él, igual que FunnelService).
+		-- Una tabla aparte se vería en el Index pero no habría forma de conseguirlas.
+		--
+		-- Los gates de Level caen justo antes de un stage de EconomyConfig.World2
+		-- (133, 137, 140...): se evoluciona y con eso se entra al stage siguiente.
+		--
+		-- Los Wins están en la escala de World 2 (vuelta completa = 536M, cadena de
+		-- steps ≈ 79.9B), no en la de World 1. Suben ×10 por montura contra un
+		-- crecimiento de la curva de 1.204^10 = ×6.4 en esos mismos 10 niveles: la
+		-- montura marginal empeora, igual que los steps, y por eso la cadena no
+		-- cortocircuita el mundo. Total ≈ 45.5B ≈ 0.57× la cadena de steps.
+		--
+		-- Los multiplicadores son ADITIVOS dentro del TotalMultiplier (90 → 250 es
+		-- ×2.8 sobre la base), así que el motor de ingreso de World 2 sigue siendo su
+		-- cadena de steps (×4000) y estas monturas la acompañan sin sustituirla.
+		{ Name = "Frostmane",  Multiplier = 110.00, Image = "rbxassetid://95196819681688", EvolveRequirements = { Level = 133, Wins = 5000000     } },
+		{ Name = "Kryo",       Multiplier = 135.00, Image = "rbxassetid://101080335855594", EvolveRequirements = { Level = 143, Wins = 60000000    } },
+		{ Name = "Drumgo",     Multiplier = 165.00, Image = "rbxassetid://111154755475379", EvolveRequirements = { Level = 153, Wins = 500000000   } },
+		{ Name = "Iskryon",    Multiplier = 205.00, Image = "rbxassetid://105694988436139", EvolveRequirements = { Level = 163, Wins = 5000000000  } },
+		{ Name = "Drogmarth",  Multiplier = 250.00, Image = "rbxassetid://134469275872562", EvolveRequirements = { Level = 173, Wins = 40000000000 } },
 	} :: { MountData },
 
 	-- Secret Mounts del Index. Sin ProductId no se pueden comprar: Velune, Droth y
@@ -78,17 +106,30 @@ local MountsConfig = {
 	-- factor mínimo es 2), y su valor crece solo según avanza la cadena de evolves
 	-- en vez de quedar obsoleta a mitad de partida o romper el early game.
 	--
-	-- OJO — decisión deliberada, no un descuido: las dos de pago NO están por encima
-	-- de las gratuitas. Vespofuzz (x2) empata con Velune y pierde contra Droth (x3);
-	-- Phantom Chopper (x5) empata con Pyrax. Si algún día se revisan las ventas de
-	-- 3606128170 / 3606128200, es aquí donde hay que mirar.
+	-- Las de pago son las que llevan ProductId: hoy Vespofuzz (3606128170) y Frostak
+	-- (3606128200). Phantom Chopper se quedó SIN ProductId al pasárselo a Frostak,
+	-- así que ahora mismo no hay forma de conseguirla.
+	--
+	-- OJO: Frostak (x6) SÍ está por encima de todas las gratuitas (la mejor es
+	-- Pyrax, x5). Es un cambio de criterio respecto a como estaba: antes ninguna de
+	-- pago superaba a las del Daily —Vespofuzz (x2) empata con Velune y pierde
+	-- contra Droth (x3), y Phantom Chopper (x5) empataba con Pyrax— para que pagar
+	-- adelantase, no desbloquease poder que no se puede conseguir jugando. Si algún
+	-- día se revisan las ventas, es aquí donde hay que mirar.
+	--
+	-- El número del pedestal en Workspace.PremiumMounts (Buy<n>/Detail<n>) NO es el
+	-- índice de esta lista: es la posición entre las que tienen ProductId. Lo
+	-- resuelve PremiumMounts/client con su propio contador.
 	Premium = {
 		{ Name = "Vespofuzz",       PremiumFactor = 2, Image = "rbxassetid://124781012483071", EvolveRequirements = nil, ProductId = 3606128170 },
-		{ Name = "Phantom Chopper", PremiumFactor = 5, Image = "rbxassetid://119825390796383", EvolveRequirements = nil, ProductId = 3606128200 },
+		{ Name = "Phantom Chopper", PremiumFactor = 5, Image = "rbxassetid://119825390796383", EvolveRequirements = nil },
 		{ Name = "Velune",          PremiumFactor = 2, Image = "rbxassetid://136869744377145", EvolveRequirements = nil },
 		{ Name = "Droth",           PremiumFactor = 3, Image = "rbxassetid://138492432017701", EvolveRequirements = nil },
 		{ Name = "Pyrax",           PremiumFactor = 5, Image = "rbxassetid://104693225494550", EvolveRequirements = nil },
 		{ Name = "Vezkitt",         PremiumFactor = 3, Image = "rbxassetid://123190378184732", EvolveRequirements = nil },
+		{ Name = "Frostak",         PremiumFactor = 6, Image = "rbxassetid://133718337714509", EvolveRequirements = nil, ProductId = 3606128200 },
+
+		
 	} :: { MountData },
 
 }

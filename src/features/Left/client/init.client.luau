@@ -23,7 +23,7 @@ local menus = playerGui:WaitForChild("Menus")
 local btnEvolve  = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Evolve")  :: ImageButton
 local btnRebirth = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Rebirth") :: ImageButton
 local btnIndex   = left:WaitForChild("Main"):WaitForChild("Line1"):WaitForChild("Index")   :: ImageButton
-local btnTeleports = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Teleports") :: ImageButton
+-- El botón "Teleports" NO se coge aquí: lo posee src/features/Worlds/client.
 local btnWorlds    = left:WaitForChild("Main"):WaitForChild("Line2"):WaitForChild("Worlds")    :: ImageButton
 
 -- Menús
@@ -86,11 +86,11 @@ task.spawn(function()
 	end)
 end)
 
--- Teleports y Worlds: aún no implementados → mostrar error "Coming Soon"
-btnTeleports.MouseButton1Click:Connect(function()
-	AlertsModule.ShowAlertGui("Error", "Coming Soon")
-end)
-
+-- Teleports lo lleva el feature Worlds (src/features/Worlds/client): abre el menú
+-- Menus.Teleport. No conectarlo también aquí o el menú se abriría y se cerraría
+-- en el mismo clic.
+--
+-- Worlds sigue sin implementar → error "Coming Soon"
 btnWorlds.MouseButton1Click:Connect(function()
 	AlertsModule.ShowAlertGui("Error", "Coming Soon")
 end)
@@ -375,6 +375,46 @@ local function buildMountGrid(mountList: { MountsConfig.MountData }, ownedMounts
 	return grid
 end
 
+-- Cuánto se sale la rejilla de su propio frame, en escala del contenedor.
+--
+-- Los templates Quantity6/12/18/24 son frames de ALTO FIJO (AutomaticSize = None)
+-- dimensionados para ese número de tarjetas, y su UIGridLayout ni recorta ni
+-- empuja: las filas que no caben se dibujan FUERA del frame y se comen la sección
+-- siguiente del UIListLayout. Con 20 monturas el desbordamiento era de 0.09 de la
+-- altura del frame y pasaba desapercibido; con 25 son 5 filas, 0.37, y las Secret
+-- Mounts acababan debajo de las tarjetas.
+--
+-- Se MIDE en vez de tocar los templates del .rbxl (que comparten otros menús) o
+-- de escribir el número de filas a mano: así sigue saliendo bien cuando se añada
+-- la montura 26.
+local function gridOverflowScale(grid: Frame): number
+	local layout = grid:FindFirstChildOfClass("UIGridLayout")
+	if not layout then return 0 end
+
+	local cellX, padX = layout.CellSize.X.Scale, layout.CellPadding.X.Scale
+	local cellY, padY = layout.CellSize.Y.Scale, layout.CellPadding.Y.Scale
+	-- Rejilla en offset (px) y no en escala: aquí no se sabe medir, y no la hay.
+	if cellX <= 0 or cellY <= 0 then return 0 end
+
+	local count = 0
+	for _, child in grid:GetChildren() do
+		if child:IsA("GuiObject") then count += 1 end
+	end
+	if count == 0 then return 0 end
+
+	-- n columnas caben si n*cell + (n-1)*pad <= 1.
+	local columns = math.max(1, math.floor((1 + padX) / (cellX + padX)))
+	local rows    = math.ceil(count / columns)
+
+	-- Alto del contenido en unidades del propio frame (1 = su altura).
+	local content = rows * cellY + (rows - 1) * padY
+	if content <= 1 then return 0 end
+
+	-- El frame mide grid.Size.Y.Scale del contenedor, así que el sobrante se
+	-- convierte a esa misma escala para que el hueco case exactamente.
+	return (content - 1) * grid.Size.Y.Scale
+end
+
 local function buildTitleRow(text: string, owned: number, total: number): Frame
 	local t         = titleTemplate:Clone()
 	local label     = t:FindFirstChild("TextLabel") :: TextLabel
@@ -408,12 +448,33 @@ local function populateWorldGrid(worldKey: string, ownedMounts: {[string]: boole
 		item.Parent = indexScrolling
 	end
 
+	-- Frame vacío con el alto que la rejilla se sale de su template. Sin él, la
+	-- sección siguiente se dibuja encima de las últimas tarjetas: el UIListLayout
+	-- coloca por el tamaño DECLARADO del frame, no por lo que ocupa su contenido.
+	local function nextGridSpacer(grid: Frame)
+		local overflow = gridOverflowScale(grid)
+		if overflow <= 0 then return end
+
+		local spacer = Instance.new("Frame")
+		spacer.Name                   = "GridSpacer"
+		spacer.BackgroundTransparency = 1
+		spacer.BorderSizePixel        = 0
+		spacer.Size                   = UDim2.fromScale(1, overflow)
+		nextItem(spacer)
+	end
+
+	local mountsGrid = buildMountGrid(normalMounts, ownedMounts, equippedName)
 	nextItem(buildTitleRow("Mounts", countOwned(normalMounts, ownedMounts), #normalMounts))
-	nextItem(buildMountGrid(normalMounts, ownedMounts, equippedName))
+	nextItem(mountsGrid)
+	nextGridSpacer(mountsGrid)
 
 	if #secretMounts > 0 then
+		local secretGrid = buildMountGrid(secretMounts, ownedMounts, equippedName)
 		nextItem(buildTitleRow("Secret Mounts", countOwned(secretMounts, ownedMounts), #secretMounts))
-		nextItem(buildMountGrid(secretMounts, ownedMounts, equippedName))
+		nextItem(secretGrid)
+		-- También detrás de la última: la rejilla de Premium crecerá igual, y sin
+		-- esto se saldría del canvas del ScrollingFrame en vez de pisar a nadie.
+		nextGridSpacer(secretGrid)
 	end
 end
 
